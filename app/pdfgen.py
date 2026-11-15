@@ -314,8 +314,17 @@ def _seitenrahmen_factory(kopf_links, kopf_rechts):
     return Rahmen
 
 
+class _Doc(SimpleDocTemplate):
+    """Entfernt Abstände am Dokumentende (sonst entsteht ggf. eine leere letzte Seite)."""
+
+    def build(self, story, **kw):
+        while story and isinstance(story[-1], (Spacer, CondPageBreak)):
+            story.pop()
+        return super().build(story, **kw)
+
+
 def _doc(buf, titel):
-    return SimpleDocTemplate(buf, pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN,
+    return _Doc(buf, pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN,
                              topMargin=1.8 * cm, bottomMargin=1.7 * cm, title=titel, author="LernLabor")
 
 
@@ -391,13 +400,15 @@ def _loesungs_story(st, aufgaben, bild_pfad):
         loes = markup_flowables(a.loesung or "(keine Musterlösung hinterlegt)", st, lw,
                                 sichtbare_bilder(a, "loesung"), bild_pfad)
         loes += _angehaengt(fuer_loesung, st, lw, bild_pfad)
+        while loes and isinstance(loes[-1], Spacer):  # kein leeres Box-Ende auf einer neuen Seite
+            loes.pop()
         box = Table([[Paragraph("<b>Lösung</b>", st["klein"])]] + [[f] for f in loes], colWidths=[CONTENT_W])
         box.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), LOESUNG_BG),
                                  ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#7aa87a")),
                                  ("LEFTPADDING", (0, 0), (-1, -1), 8), ("TOPPADDING", (0, 0), (-1, -1), 1),
                                  ("BOTTOMPADDING", (0, 0), (-1, -1), 1)]))
         story.append(CondPageBreak(4 * cm))
-        story += teile + [Spacer(1, 4), box, Spacer(1, 16)]
+        story += teile + [Spacer(1, 4), KeepTogether([box]), Spacer(1, 16)]
     return story
 
 

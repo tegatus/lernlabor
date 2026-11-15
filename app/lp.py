@@ -278,6 +278,7 @@ def aufgabe_bearbeiten(aufgabe_id=None):
 
 def _bilder_speichern(a, f, neue_dateien):
     """Bestehende Bilder aktualisieren/löschen, neue Bilder anhängen (Nummern bleiben stabil)."""
+    naechste = max([b.nr for b in a.bilder] + [0]) + 1  # vor dem Löschen: vorhergesagte Nummern im Editor bleiben gültig
     for b in list(a.bilder):
         if f.get(f"bild_{b.id}_loeschen") == "1":
             a.bilder.remove(b)
@@ -286,7 +287,6 @@ def _bilder_speichern(a, f, neue_dateien):
         b.groesse = g if g in BILDGROESSEN else b.groesse
         b.nur_loesung = f.get(f"bild_{b.id}_loesung") == "1"
         b.beschriftung = f.get(f"bild_{b.id}_text", "").strip()[:300]
-    naechste = max([b.nr for b in a.bilder] + [0]) + 1
     groesse = f.get("neu_groesse") if f.get("neu_groesse") in BILDGROESSEN else "voll"
     for datei in neue_dateien:
         if not datei or not datei.filename:
@@ -299,6 +299,20 @@ def _bilder_speichern(a, f, neue_dateien):
         a.bilder.append(AufgabeBild(nr=naechste, datei=storage.speichere_bild(im, "aufgabenbilder"),
                                     groesse=groesse, nur_loesung=f.get("neu_loesung") == "1"))
         naechste += 1
+
+
+@bp.route("/aufgaben/vorschau", methods=["POST"])
+@lp_required
+def aufgabe_live_vorschau():
+    """Live-Vorschau im Editor: rendert Aufgabentext und Lösung als HTML (wie im PDF, ohne Seitenlayout)."""
+    from .markup import markup_html
+    d = request.get_json(force=True)
+    a = db.session.get(Aufgabe, int(d.get("aufgabe_id") or 0)) if d.get("aufgabe_id") else None
+    bilder = {b.nr: b for b in a.bilder} if a else {}
+    url = lambda b: url_for(".aufgabenbild", bild_id=b.id)  # noqa: E731
+    sichtbar = {nr: b for nr, b in bilder.items() if not b.nur_loesung}
+    return jsonify(aufgabe=str(markup_html(d.get("text", ""), sichtbar, url)),
+                   loesung=str(markup_html(d.get("loesung", ""), bilder, url)))
 
 
 @bp.route("/aufgabenbild/<int:bild_id>")

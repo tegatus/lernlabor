@@ -260,3 +260,36 @@ def test_altes_einzelbild_wird_migriert(app):
         migriere_einzelbilder()
         a = db.session.get(Aufgabe, a.id)
         assert a.bild is None and [(b.nr, b.datei) for b in a.bilder] == [(1, "aufgabenbilder/alt.jpg")]
+
+
+# ---------------------------------------------------------------- Editor: Live-Vorschau & Bildnummern
+
+def test_live_vorschau(app):
+    lp = app.test_client()
+    login(lp, "lp", "lp-demo-2026")
+    r = lp.post("/lp/aufgaben/vorschau", json={"text": "H_{2}O und **fett**\n[[bild:4|halb]]", "loesung": "| A | B |\n| 1 | 2 |"})
+    d = r.get_json()
+    assert "<sub>2</sub>" in d["aufgabe"] and "<b>fett</b>" in d["aufgabe"]
+    assert 'class="platzhalter" data-nr="4"' in d["aufgabe"]          # noch nicht gespeichertes Bild
+    assert "<table" in d["loesung"]
+    c = app.test_client()
+    login(c, "lea", "lernen-2026")
+    assert c.post("/lp/aufgaben/vorschau", json={"text": "x"}).status_code == 403
+
+
+def test_neue_bildnummern_bleiben_bei_gleichzeitigem_loeschen(app):
+    """Der Editor sagt Nummern neuer Bilder voraus (max+1); das muss auch gelten, wenn im selben
+    Speichervorgang das Bild mit der höchsten Nummer gelöscht wird."""
+    lp = app.test_client()
+    login(lp, "lp", "lp-demo-2026")
+    basis = {"titel": "Nummern", "text": "t", "loesung": "l", "punkte": "1", "antwortformat": "linien",
+             "antwortraum_cm": "2", "verwendung": "beide", "aktiv": "1"}
+    lp.post("/lp/aufgaben/neu", data={**basis, "bilder_neu": [(_bild("red"), "a.png"), (_bild("blue"), "b.png")]},
+            content_type="multipart/form-data")
+    with app.app_context():
+        a = Aufgabe.query.filter_by(titel="Nummern").one()
+        aid, hoechstes = a.id, a.bilder[-1].id
+    lp.post(f"/lp/aufgaben/{aid}", data={**basis, "text": "[[bild:3]]", f"bild_{hoechstes}_loeschen": "1",
+                                          "bilder_neu": [(_bild("green"), "c.png")]}, content_type="multipart/form-data")
+    with app.app_context():
+        assert [b.nr for b in db.session.get(Aufgabe, aid).bilder] == [1, 3]

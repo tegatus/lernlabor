@@ -129,3 +129,26 @@ code.marker { cursor: pointer; background: var(--akzent-hell); color: var(--akze
 .bildzeile figure { margin: 0; } .bildzeile img { width: 100%; background: #fff; border-radius: 3px; }
 .bildzeile figcaption { font-size: .78rem; color: var(--grau); font-style: italic; }
 .absatz { margin: .2rem 0; }
+
+/* Aufgaben-Editor */
+.editor .feld > span { display: block; font-weight: 600; font-size: .92rem; margin-bottom: .25rem; }
+.editor textarea { width: 100%; font: inherit; padding: .5rem .6rem; border: 1px solid var(--eingabe-rand); border-radius: 0 0 6px 6px; background: var(--flaeche); color: var(--text); display: block; }
+.editor-leiste { display: flex; flex-wrap: wrap; gap: .2rem; align-items: center; background: var(--flaeche-2); border: 1px solid var(--eingabe-rand); border-bottom: 0; border-radius: 6px 6px 0 0; padding: .25rem; position: relative; }
+.editor-leiste button, .symbole summary { border: 1px solid transparent; background: none; color: var(--text); border-radius: 4px; padding: .15rem .45rem; cursor: pointer; font-size: .85rem; list-style: none; }
+.editor-leiste button:hover, .symbole summary:hover { background: var(--flaeche); border-color: var(--eingabe-rand); }
+.editor-leiste .trenner { width: 1px; height: 1.2rem; background: var(--eingabe-rand); margin: 0 .2rem; }
+.symbole { border: 0; padding: 0; } .symbole summary::-webkit-details-marker { display: none; }
+.symbole > div { position: absolute; z-index: 20; right: .3rem; top: 2rem; width: 260px; display: flex; flex-wrap: wrap; gap: 2px; background: var(--flaeche); border: 1px solid var(--eingabe-rand); border-radius: 6px; padding: .4rem; box-shadow: 0 4px 14px rgba(0,0,0,.15); }
+.symbole > div button { width: 28px; padding: .15rem 0; font-size: 1rem; }
+textarea.ziehen, .ablagezone.ziehen { outline: 3px dashed var(--akzent); outline-offset: -3px; background: var(--akzent-hell) !important; }
+.ablagezone { border: 2px dashed var(--eingabe-rand); border-radius: var(--radius); padding: .7rem .9rem; background: var(--flaeche); }
+.bildkarte.neu { border-style: dashed; }
+.pdf-symbol { width: 120px; height: 80px; display: grid; place-items: center; background: var(--flaeche-2); border-radius: 4px; font-weight: 700; color: var(--grau); }
+kbd { font-family: ui-monospace, monospace; font-size: .8em; border: 1px solid var(--eingabe-rand); border-bottom-width: 2px; border-radius: 3px; padding: 0 .25rem; background: var(--flaeche-2); }
+.live-vorschau { margin-top: .4rem; }
+.live-vorschau .tabs { align-items: center; } .vorschau-status { margin-left: auto; font-size: .8rem; }
+.vorschau-inhalt { background: #fff; color: #1d2733; border-radius: 4px; padding: .7rem .9rem; min-height: 4rem; font-family: "Liberation Sans", Arial, sans-serif; font-size: .95rem; }
+.vorschau-inhalt.loesungstext { display: block; background: #eef6ee; border-left: 3px solid #7aa87a; color: #1d2733; }
+.vorschau-inhalt table.mini td, .vorschau-inhalt table.mini th { border-color: #999; }
+figure.platzhalter > div { border: 2px dashed #b0bac5; border-radius: 4px; padding: 1.2rem .5rem; text-align: center; color: #6b7785; font-size: .85rem; }
+.speicherleiste { position: sticky; bottom: 0; background: var(--bg); padding: .6rem 0; border-top: 1px solid var(--linie); z-index: 10; }

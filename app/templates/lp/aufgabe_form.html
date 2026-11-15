@@ -1,29 +1,70 @@
 {% extends "base.html" %}{% from "_macros.html" import csrf, auswahl %}
 {% block title %}{{ aufgabe.titel if aufgabe else 'Neue Aufgabe' }}{% endblock %}
+
+{% macro werkzeugleiste(ziel) %}
+<div class="editor-leiste" data-ziel="{{ ziel }}">
+  <button type="button" data-aktion="fett" title="Fett (Ctrl+B)"><b>B</b></button>
+  <button type="button" data-aktion="kursiv" title="Kursiv (Ctrl+I)"><i>I</i></button>
+  <button type="button" data-aktion="tief" title="Tiefgestellt, z. B. H₂O">x₂</button>
+  <button type="button" data-aktion="hoch" title="Hochgestellt, z. B. 10⁶">x²</button>
+  <button type="button" data-aktion="formel" title="Chemische Formel: markierten Text umwandeln (H2SO4 → H₂SO₄, Ca2+ → Ca²⁺)">⚗ Formel</button>
+  <span class="trenner"></span>
+  <button type="button" data-aktion="liste" title="Aufzählung">• Liste</button>
+  <button type="button" data-aktion="teil" title="Teilaufgaben a), b), …">a) b)</button>
+  <button type="button" data-aktion="tabelle" title="Tabelle einfügen">▦ Tabelle</button>
+  <button type="button" data-aktion="bild" title="Bild einfügen (oder Screenshot mit Ctrl+V einfügen / Bild hierher ziehen)">🖼 Bild</button>
+  <span class="trenner"></span>
+  <details class="symbole">
+    <summary title="Sonderzeichen">Ω Zeichen</summary>
+    <div>
+      {% for z in "µ ° × · ± ≈ ≙ ≠ ≤ ≥ → ⇌ ↑ ↓ Δ α β γ λ π σ Σ √ ‰ ½ ¹ ² ³ ⁺ ⁻ ₀ ₁ ₂ ₃ ₄ Å ℃ Ω ∞".split() %}<button type="button" data-zeichen="{{ z }}">{{ z }}</button>{% endfor %}
+    </div>
+  </details>
+</div>
+{% endmacro %}
+
 {% block content %}
 <h1>{{ 'Aufgabe #%d bearbeiten'|format(aufgabe.id) if aufgabe else 'Neue Aufgabe' }}</h1>
 {% if aufgabe and request.args.get('vorschau') %}
   <p><a class="btn sek" href="{{ url_for('lp.aufgabe_vorschau', aufgabe_id=aufgabe.id) }}" target="_blank">Vorschau-PDF öffnen</a></p>
 {% endif %}
-<form method="post" enctype="multipart/form-data">{{ csrf() }}
-<div class="zweispaltig">
+<form method="post" enctype="multipart/form-data" id="aufgabe-form"
+      data-vorschau-url="{{ url_for('lp.aufgabe_live_vorschau') }}"
+      data-aufgabe-id="{{ aufgabe.id if aufgabe else '' }}"
+      data-max-nr="{{ (aufgabe.bilder|map(attribute='nr')|max) if aufgabe and aufgabe.bilder else 0 }}">{{ csrf() }}
+<div class="zweispaltig editor">
   <div>
     <label class="feld">Titel <input name="titel" value="{{ aufgabe.titel if aufgabe }}" required maxlength="200"></label>
-    <label class="feld">Aufgabentext <textarea name="text" rows="14" required>{{ aufgabe.text if aufgabe }}</textarea></label>
-    <label class="feld">Musterlösung (inkl. Bewertungshinweisen) <textarea name="loesung" rows="10">{{ aufgabe.loesung if aufgabe }}</textarea></label>
+    {# Aufgabentyp-Bereich (Abschnitt 3) #}
+    <div class="feld"><span>Aufgabentext</span>
+      {{ werkzeugleiste('text') }}
+      <textarea name="text" rows="12" required class="ablage">{{ aufgabe.text if aufgabe }}</textarea></div>
+    <div class="feld"><span>Musterlösung (inkl. Bewertungshinweisen)</span>
+      {{ werkzeugleiste('loesung') }}
+      <textarea name="loesung" rows="8" class="ablage">{{ aufgabe.loesung if aufgabe }}</textarea></div>
+
+    <div class="card live-vorschau">
+      <div class="tabs">
+        <button type="button" class="tab aktiv" data-ansicht="aufgabe">Vorschau Aufgabenblatt</button>
+        <button type="button" class="tab" data-ansicht="loesung">Vorschau Lösung</button>
+        <span class="muted vorschau-status"></span>
+      </div>
+      <div class="vorschau-inhalt" id="vorschau-aufgabe"></div>
+      <div class="vorschau-inhalt loesungstext" id="vorschau-loesung" style="display:none"></div>
+      <p class="muted" style="margin:.5rem 0 0">Die Vorschau aktualisiert sich beim Tippen. Exaktes Seitenlayout: «Speichern &amp; Vorschau» (PDF).</p>
+    </div>
   </div>
+
   <div>
-    <div class="hilfe">
-      <strong>Formatierung</strong><br>
+    <details class="hilfe">
+      <summary><strong>Formatierung &amp; Tipps</strong></summary>
       Leerzeile = neuer Absatz · <code>- Punkt</code> Aufzählung · <code>a) …</code> Teilaufgabe<br>
       <code>**fett**</code> · <code>*kursiv*</code> · <code>H_{2}O</code> tiefgestellt · <code>10^{6}</code> hochgestellt<br>
       Tabelle: Zeilen wie <code>| Probe | Ct |</code> (erste Zeile = Kopf)<br>
-      Sonderzeichen direkt eingeben: µ ° × ± ≈ → Δ ₂<br>
-      <strong>Grafiken</strong>: <code>[[bild:1]]</code> auf einer eigenen Zeile platziert Bild 1 an dieser Stelle,
-      <code>[[bild:2|halb]]</code> mit anderer Grösse (voll, zweidrittel, halb, drittel, viertel).
-      Mehrere Marker auf einer Zeile stehen <em>nebeneinander</em>. Nicht platzierte Bilder erscheinen am Ende.
-      Marker gehen auch in der Musterlösung.
-    </div>
+      <strong>Grafiken</strong>: Screenshot mit <kbd>Ctrl</kbd>+<kbd>V</kbd> ins Textfeld einfügen oder Bild hineinziehen –
+      der Platzhalter <code>[[bild:1]]</code> wird automatisch gesetzt. <code>[[bild:2|halb]]</code> = andere Grösse
+      (voll, zweidrittel, halb, drittel, viertel). Mehrere Platzhalter auf einer Zeile stehen <em>nebeneinander</em>.
+    </details>
     <div class="vierspaltig" style="margin-top:1rem">
       <label class="feld">Punkte <input name="punkte" value="{{ aufgabe.punkte|pkt if aufgabe else 2 }}"></label>
       <label class="feld">K-Stufe <select name="k_stufe"><option value="">–</option>
@@ -37,6 +78,7 @@
       <label class="feld">Höhe Antwortfeld (cm) <input name="antwortraum_cm" value="{{ aufgabe.antwortraum_cm|pkt if aufgabe else 5 }}"></label>
       <label class="feld">Aktiv <select name="aktiv"><option value="1">ja</option><option value="0" {{ 'selected' if aufgabe and not aufgabe.aktiv }}>nein (archiviert)</option></select></label>
     </div>
+
     <h3>Grafiken</h3>
     {% if aufgabe and aufgabe.bilder %}
     <div class="bilderliste">
@@ -63,14 +105,19 @@
       {% endfor %}
     </div>
     {% endif %}
-    <div class="card" style="padding:.7rem .9rem">
-      <label class="feld" style="margin-bottom:.4rem">Grafiken hinzufügen (mehrere möglich: Foto, Diagramm, Screenshot, PDF-Seite)
-        <input type="file" name="bilder_neu" accept="image/*,application/pdf" multiple></label>
-      <div class="aktionen" style="margin:0">
-        <select name="neu_groesse">{% for k, (label, _) in BILDGROESSEN.items() %}<option value="{{ k }}">{{ label }}</option>{% endfor %}</select>
-        <label><input type="checkbox" name="neu_loesung" value="1"> nur in der Lösung</label>
+    <div class="ablagezone ablage" id="ablagezone">
+      <p style="margin:0 0 .4rem"><strong>Bilder hierher ziehen</strong>, mit <kbd>Ctrl</kbd>+<kbd>V</kbd> in ein Textfeld einfügen oder
+        <button type="button" class="link" id="bild-waehlen">Dateien auswählen</button></p>
+      <input type="file" name="bilder_neu" id="bilder-neu" accept="image/*,application/pdf" multiple hidden>
+      <div class="bilderliste" id="neue-bilder"></div>
+      <div class="aktionen" style="margin:.4rem 0 0">
+        <label class="muted">Grösse neuer Bilder
+          <select name="neu_groesse">{% for k, (label, _) in BILDGROESSEN.items() %}<option value="{{ k }}">{{ label }}</option>{% endfor %}</select></label>
+        <label class="muted"><input type="checkbox" name="neu_loesung" value="1"> nur in der Lösung</label>
       </div>
+      <p class="muted" style="margin:.3rem 0 0">Neue Bilder werden beim Speichern hochgeladen.</p>
     </div>
+
     <h3>Zuordnung</h3>
     <p class="muted">Gewählte Lernziele bringen ihre BiVo-Leistungsziele automatisch mit.</p>
     {{ auswahl(themen, bereiche,
@@ -80,7 +127,7 @@
     <label class="feld">Neues Thema anlegen (optional) <input name="neues_thema" placeholder="z. B. Gelelektrophorese"></label>
   </div>
 </div>
-<div class="aktionen">
+<div class="aktionen speicherleiste">
   <button class="btn" name="weiter" value="liste">Speichern</button>
   <button class="btn sek" name="weiter" value="vorschau">Speichern &amp; Vorschau</button>
   <a href="{{ url_for('lp.aufgaben') }}">Abbrechen</a>
@@ -91,22 +138,7 @@
   <button class="link">Als Vorlage duplizieren (z. B. Variante mit anderen Zahlen)</button></form>
 {% endif %}
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='auswahl.js') }}"></script>
-<script>
-  // Marker an der Cursorposition einfügen (eigene Zeile) bzw. in die Zwischenablage kopieren
-  document.querySelectorAll('.einfuegen').forEach(btn => btn.addEventListener('click', () => {
-    const ta = document.querySelector(`textarea[name=${btn.dataset.ziel}]`);
-    const pos = ta.selectionStart ?? ta.value.length;
-    const vor = ta.value.slice(0, pos), nach = ta.value.slice(pos);
-    const einf = (vor && !vor.endsWith('\n') ? '\n' : '') + btn.dataset.marker + (nach.startsWith('\n') ? '' : '\n');
-    ta.value = vor + einf + nach;
-    ta.focus();
-    ta.selectionStart = ta.selectionEnd = pos + einf.length;
-  }));
-  document.querySelectorAll('code.marker').forEach(c => c.addEventListener('click', () => {
-    const marker = c.textContent;
-    navigator.clipboard?.writeText(marker);
-    c.textContent = 'kopiert ✓';
-    setTimeout(() => { c.textContent = marker; }, 1200);
-  }));
-</script>{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='auswahl.js') }}"></script>
+<script src="{{ url_for('static', filename='editor.js') }}"></script>
+{% endblock %}

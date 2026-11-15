@@ -64,6 +64,10 @@ def _bilder_html(treffer, bilder, bild_url):
     for nr, groesse in treffer:
         b = bilder.get(nr)
         if not b:
+            # noch nicht gespeichertes Bild (eingefügt/gezogen) – der Editor ersetzt den Platzhalter
+            anteil = BILDGROESSEN.get(groesse or "", BILDGROESSEN["voll"])[1]
+            teile.append(f'<figure class="platzhalter" data-nr="{nr}" style="width:{anteil * 100:.0f}%">'
+                         f'<div>Bild {nr}</div></figure>')
             continue
         anteil = BILDGROESSEN.get(groesse or b.groesse, BILDGROESSEN["voll"])[1]
         cap = f"<figcaption>{html.escape(b.beschriftung)}</figcaption>" if b.beschriftung else ""
