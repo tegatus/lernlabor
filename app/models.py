@@ -158,7 +158,7 @@ class Aufgabe(db.Model):
     antwortformat = db.Column(db.String(10), default="linien")
     antwortraum_cm = db.Column(db.Float, default=5.0)
     verwendung = db.Column(db.String(10), default="beide")
-    bild = db.Column(db.String(255))  # Dateiname in uploads/aufgabenbilder
+    bild = db.Column(db.String(255))  # veraltet (früher: ein Bild pro Aufgabe) – siehe AufgabeBild
     aktiv = db.Column(db.Boolean, default=True, nullable=False)
     erstellt_am = db.Column(db.DateTime, default=now)
     geaendert_am = db.Column(db.DateTime, default=now, onupdate=now)
@@ -166,6 +166,11 @@ class Aufgabe(db.Model):
     themen = db.relationship("Thema", secondary=aufgabe_thema, order_by="Thema.name")
     leistungsziele = db.relationship("Leistungsziel", secondary=aufgabe_leistungsziel, order_by="Leistungsziel.sort")
     lernziele = db.relationship("Lernziel", secondary=aufgabe_lernziel)
+    bilder = db.relationship("AufgabeBild", order_by="AufgabeBild.nr", cascade="all, delete-orphan",
+                             back_populates="aufgabe")
+
+    def bild_nr(self, nr):
+        return next((b for b in self.bilder if b.nr == nr), None)
 
     def to_dict(self):
         return {
@@ -176,6 +181,43 @@ class Aufgabe(db.Model):
             "leistungsziele": [l.code for l in self.leistungsziele],
             "lernziele": [f"{l.thema.name}|{l.kuerzel}" for l in self.lernziele],
         }
+
+
+BILDGROESSEN = {"voll": ("Volle Breite", 1.0), "zweidrittel": ("2/3 Breite", 2 / 3), "halb": ("Halbe Breite", 0.5),
+                "drittel": ("1/3 Breite", 1 / 3), "viertel": ("1/4 Breite", 0.25)}
+
+
+class AufgabeBild(db.Model):
+    """Grafik zu einer Aufgabe. Platzierung im Text mit [[bild:NR]] (optional [[bild:NR|halb]]).
+
+    nur_loesung=True: erscheint nur auf Lösungsblättern, nie auf dem Aufgabenblatt.
+    Nicht referenzierte Bilder werden am Ende des Aufgabentexts bzw. der Lösung angehängt.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    aufgabe_id = db.Column(db.Integer, db.ForeignKey("aufgabe.id"), nullable=False)
+    aufgabe = db.relationship("Aufgabe", back_populates="bilder")
+    nr = db.Column(db.Integer, nullable=False)          # stabil, wird beim Löschen nicht neu vergeben
+    datei = db.Column(db.String(255), nullable=False)
+    groesse = db.Column(db.String(12), default="voll")
+    nur_loesung = db.Column(db.Boolean, default=False, nullable=False)
+    beschriftung = db.Column(db.String(300), default="")
+
+    @property
+    def marker(self):
+        return f"[[bild:{self.nr}]]"
+
+    @property
+    def breite_anteil(self):
+        return BILDGROESSEN.get(self.groesse, BILDGROESSEN["voll"])[1]
+
+
+def migriere_einzelbilder():
+    """Übernimmt das frühere Einzelbild (Aufgabe.bild) als Bild Nr. 1."""
+    for a in Aufgabe.query.filter(Aufgabe.bild.isnot(None)).all():
+        if not a.bilder:
+            a.bilder.append(AufgabeBild(nr=1, datei=a.bild, groesse="voll"))
+        a.bild = None
+    db.session.commit()
 
 
 # ---------------------------------------------------------------- Übungsblätter der Lernenden

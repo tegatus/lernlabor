@@ -50,8 +50,8 @@ def create_app(config=None):
 
     app.jinja_env.globals["csrf_token"] = csrf_token
 
-    from .models import ANTWORTFORMATE, VERWENDUNGEN
-    app.jinja_env.globals.update(ANTWORTFORMATE=ANTWORTFORMATE, VERWENDUNGEN=VERWENDUNGEN)
+    from .models import ANTWORTFORMATE, BILDGROESSEN, VERWENDUNGEN
+    app.jinja_env.globals.update(ANTWORTFORMATE=ANTWORTFORMATE, VERWENDUNGEN=VERWENDUNGEN, BILDGROESSEN=BILDGROESSEN)
 
     @app.template_filter("datum")
     def _datum(d, mit_zeit=False):
@@ -76,6 +76,8 @@ def create_app(config=None):
 
     with app.app_context():
         db.create_all()
+        from .models import migriere_einzelbilder
+        migriere_einzelbilder()
     return app
 
 

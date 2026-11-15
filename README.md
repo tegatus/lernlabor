@@ -20,9 +20,14 @@ online korrigierte Rückmeldung. Lehrpersonen generieren aus derselben Datenbank
   (Profil der lernenden Person → «Lösung»).
 - **Online-Korrektur**: Stift, Textmarker, Text, Haken/Kreuz, Kreis, 4 Farben, Rückgängig; funktioniert mit Maus,
   Touch und Stift (iPad). Pro Aufgabe Punkte und Kommentar, Musterlösung einblendbar, Gesamtkommentar, Lösung freigeben.
-- **Aufgabenverwaltung**: einfache Auszeichnung (fett, Listen, Tabellen, tief-/hochgestellt), Bild, Punkte, K-Stufe,
+- **Grafiken in Aufgaben**: beliebig viele Bilder pro Aufgabe (Foto, Diagramm, Screenshot, auch PDF-Seiten).
+  Platzierung im Text mit `[[bild:1]]` auf einer eigenen Zeile; `[[bild:1]] [[bild:2]]` auf derselben Zeile = nebeneinander.
+  Grösse pro Bild (volle, 2/3, halbe, 1/3, 1/4 Breite) oder pro Stelle (`[[bild:2|halb]]`), optionale Bildunterschrift.
+  Bilder mit «nur in der Lösung» erscheinen nur auf Lösungsblättern (z. B. beschriftetes Gel). Nicht platzierte Bilder
+  werden am Ende von Aufgabe bzw. Lösung angehängt. Knöpfe im Editor fügen die Marker an der Cursorposition ein.
+- **Aufgabenverwaltung**: einfache Auszeichnung (fett, Listen, Tabellen, tief-/hochgestellt), Punkte, K-Stufe,
   Antwortfeld, Verwendung (*Übung & Prüfung*, *nur Übung*, *nur Prüfung* – Letztere sehen Lernende nie), PDF-Vorschau,
-  Duplizieren als Variante, JSON-Export/-Import zum Austausch zwischen Lehrpersonen.
+  Duplizieren als Variante, JSON-Export/-Import zum Austausch zwischen Lehrpersonen (ohne Bilddateien).
 - **Lernziele**: Import direkt aus dem PDF «Lernziele konkret» (oder eingefügtem Text). Erkannt werden Einträge wie
   `14. Ich kann … (a.4.1, a.4.2, K2)`. Übersicht zeigt, welche Lernziele noch **keine** Aufgabe haben.
 - **BiVo-Kompetenzen**: Import aus der Excel-Liste; Übersicht mit Abdeckung durch Aufgaben.

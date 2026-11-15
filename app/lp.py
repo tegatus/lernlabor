@@ -11,9 +11,10 @@ from flask_login import current_user
 from PIL import Image
 
 from . import importers, pdfgen, storage
+from .markup import bild_warnungen
 from .auth import lp_required
 from .lernende import auswahl_aus_request, bild_pfad, blatt_pdf_rel
-from .models import (ANTWORTFORMATE, VERWENDUNGEN, Aufgabe, AbgabeSeite, Bereich, Klasse, Leistungsziel,
+from .models import (ANTWORTFORMATE, BILDGROESSEN, VERWENDUNGEN, Aufgabe, AufgabeBild, AbgabeSeite, Bereich, Klasse, Leistungsziel,
                      Lernziel, Pruefung, PruefungAufgabe, Thema, Uebungsblatt, User, db, now)
 from .selection import (geuebte_aufgaben_der_klasse, stelle_pruefung_zusammen, ziele_beschreiben)
 
@@ -140,7 +141,12 @@ def lernende_passwort(user_id):
 def korrektur(blatt_id):
     b = db.get_or_404(Uebungsblatt, blatt_id)
     pruefe_lernende(b.lernende)
-    return render_template("lp/korrektur.html", blatt=b)
+    def loesung_html(a):
+        from .markup import angehaengte_bilder, markup_html, sichtbare_bilder
+        url = lambda bild: url_for(".aufgabenbild", bild_id=bild.id)  # noqa: E731
+        return markup_html(a.loesung, sichtbare_bilder(a, "loesung"), url, angehaengte_bilder(a)[1])
+
+    return render_template("lp/korrektur.html", blatt=b, loesung_html=loesung_html)
 
 
 @bp.route("/korrektur/<int:blatt_id>", methods=["POST"])
@@ -258,22 +264,49 @@ def aufgabe_bearbeiten(aufgabe_id=None):
         for lz in a.lernziele:  # Lernziele bringen ihre BiVo-Leistungsziele automatisch mit
             codes |= {l.code for l in lz.leistungsziele}
         a.leistungsziele = Leistungsziel.query.filter(Leistungsziel.code.in_(codes)).all()
-        bild = request.files.get("bild")
-        if bild and bild.filename:
-            try:
-                im = storage.upload_zu_seitenbildern(bild)[0]
-                a.bild = storage.speichere_bild(im, "aufgabenbilder")
-            except ValueError as e:
-                flash(str(e), "fehler")
-        if f.get("bild_entfernen") == "1":
-            a.bild = None
+        _bilder_speichern(a, f, request.files.getlist("bilder_neu"))
         db.session.add(a)
         db.session.commit()
         flash("Aufgabe gespeichert.", "ok")
+        for w in bild_warnungen(a):
+            flash(w, "info")
         if f.get("weiter") == "vorschau":
             return redirect(url_for(".aufgabe_bearbeiten", aufgabe_id=a.id, vorschau=1))
         return redirect(url_for(".aufgaben"))
     return render_template("lp/aufgabe_form.html", **_formular_kontext(a))
+
+
+def _bilder_speichern(a, f, neue_dateien):
+    """Bestehende Bilder aktualisieren/löschen, neue Bilder anhängen (Nummern bleiben stabil)."""
+    for b in list(a.bilder):
+        if f.get(f"bild_{b.id}_loeschen") == "1":
+            a.bilder.remove(b)
+            continue
+        g = f.get(f"bild_{b.id}_groesse")
+        b.groesse = g if g in BILDGROESSEN else b.groesse
+        b.nur_loesung = f.get(f"bild_{b.id}_loesung") == "1"
+        b.beschriftung = f.get(f"bild_{b.id}_text", "").strip()[:300]
+    naechste = max([b.nr for b in a.bilder] + [0]) + 1
+    groesse = f.get("neu_groesse") if f.get("neu_groesse") in BILDGROESSEN else "voll"
+    for datei in neue_dateien:
+        if not datei or not datei.filename:
+            continue
+        try:
+            im = storage.upload_zu_seitenbildern(datei)[0]
+        except ValueError as e:
+            flash(str(e), "fehler")
+            continue
+        a.bilder.append(AufgabeBild(nr=naechste, datei=storage.speichere_bild(im, "aufgabenbilder"),
+                                    groesse=groesse, nur_loesung=f.get("neu_loesung") == "1"))
+        naechste += 1
+
+
+@bp.route("/aufgabenbild/<int:bild_id>")
+@lp_required
+def aufgabenbild(bild_id):
+    """Grafiken nur für Lehrpersonen (Lernende sehen sie ausschliesslich in ihren PDFs)."""
+    b = db.get_or_404(AufgabeBild, bild_id)
+    return send_file(storage.absolut(b.datei))
 
 
 @bp.route("/aufgaben/<int:aufgabe_id>/vorschau.pdf")
@@ -289,7 +322,9 @@ def aufgabe_vorschau(aufgabe_id):
 def aufgabe_duplizieren(aufgabe_id):
     a = db.get_or_404(Aufgabe, aufgabe_id)
     kopie = Aufgabe(**{k: getattr(a, k) for k in ("text", "loesung", "punkte", "k_stufe", "schwierigkeit",
-                                                  "antwortformat", "antwortraum_cm", "verwendung", "bild")})
+                                                  "antwortformat", "antwortraum_cm", "verwendung")})
+    kopie.bilder = [AufgabeBild(nr=b.nr, datei=b.datei, groesse=b.groesse, nur_loesung=b.nur_loesung,
+                                beschriftung=b.beschriftung) for b in a.bilder]
     kopie.titel = (a.titel + " (Kopie)")[:200]
     kopie.themen, kopie.lernziele, kopie.leistungsziele = list(a.themen), list(a.lernziele), list(a.leistungsziele)
     db.session.add(kopie)

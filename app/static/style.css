@@ -119,3 +119,13 @@ table.mini { border-collapse: collapse; margin: .3rem 0; font-size: .82rem; } ta
 /* Hochgeladene Seiten bleiben hell (Fotos/Papier) */
 .seite, .feedback-bild { background: #fff; }
 :root[data-theme="dark"] .seite, :root[data-theme="dark"] .feedback-bild { border-color: var(--linie); }
+
+/* Grafiken in Aufgaben */
+.bilderliste { display: flex; flex-direction: column; gap: .6rem; margin-bottom: .8rem; }
+.bildkarte { display: grid; grid-template-columns: 120px 1fr; gap: .8rem; align-items: start; background: var(--flaeche); border: 1px solid var(--linie); border-radius: var(--radius); padding: .6rem; }
+.bildkarte img { width: 120px; max-height: 120px; object-fit: contain; background: #fff; border: 1px solid var(--linie); border-radius: 4px; }
+code.marker { cursor: pointer; background: var(--akzent-hell); color: var(--akzent); padding: 0 .3rem; border-radius: 4px; }
+.bildzeile { display: flex; gap: .5rem; align-items: flex-end; margin: .3rem 0; }
+.bildzeile figure { margin: 0; } .bildzeile img { width: 100%; background: #fff; border-radius: 3px; }
+.bildzeile figcaption { font-size: .78rem; color: var(--grau); font-style: italic; }
+.absatz { margin: .2rem 0; }

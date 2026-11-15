@@ -18,7 +18,11 @@
       Leerzeile = neuer Absatz · <code>- Punkt</code> Aufzählung · <code>a) …</code> Teilaufgabe<br>
       <code>**fett**</code> · <code>*kursiv*</code> · <code>H_{2}O</code> tiefgestellt · <code>10^{6}</code> hochgestellt<br>
       Tabelle: Zeilen wie <code>| Probe | Ct |</code> (erste Zeile = Kopf)<br>
-      Sonderzeichen direkt eingeben: µ ° × ± ≈ → Δ ₂
+      Sonderzeichen direkt eingeben: µ ° × ± ≈ → Δ ₂<br>
+      <strong>Grafiken</strong>: <code>[[bild:1]]</code> auf einer eigenen Zeile platziert Bild 1 an dieser Stelle,
+      <code>[[bild:2|halb]]</code> mit anderer Grösse (voll, zweidrittel, halb, drittel, viertel).
+      Mehrere Marker auf einer Zeile stehen <em>nebeneinander</em>. Nicht platzierte Bilder erscheinen am Ende.
+      Marker gehen auch in der Musterlösung.
     </div>
     <div class="vierspaltig" style="margin-top:1rem">
       <label class="feld">Punkte <input name="punkte" value="{{ aufgabe.punkte|pkt if aufgabe else 2 }}"></label>
@@ -31,13 +35,42 @@
       <label class="feld">Antwortfeld <select name="antwortformat">
         {% for k, v in ANTWORTFORMATE.items() %}<option value="{{ k }}" {{ 'selected' if aufgabe and aufgabe.antwortformat == k }}>{{ v }}</option>{% endfor %}</select></label>
       <label class="feld">Höhe Antwortfeld (cm) <input name="antwortraum_cm" value="{{ aufgabe.antwortraum_cm|pkt if aufgabe else 5 }}"></label>
-      <label class="feld">Bild (optional) <input type="file" name="bild" accept="image/*"></label>
       <label class="feld">Aktiv <select name="aktiv"><option value="1">ja</option><option value="0" {{ 'selected' if aufgabe and not aufgabe.aktiv }}>nein (archiviert)</option></select></label>
     </div>
-    {% if aufgabe and aufgabe.bild %}
-      <p><img src="{{ url_for('lernende.aufgabenbild', aufgabe_id=aufgabe.id) }}" style="max-width: 260px; border: 1px solid #ddd"><br>
-      <label><input type="checkbox" name="bild_entfernen" value="1"> Bild entfernen</label></p>
+    <h3>Grafiken</h3>
+    {% if aufgabe and aufgabe.bilder %}
+    <div class="bilderliste">
+      {% for b in aufgabe.bilder %}
+      <div class="bildkarte">
+        <img src="{{ url_for('lp.aufgabenbild', bild_id=b.id) }}" alt="Bild {{ b.nr }}">
+        <div>
+          <div class="aktionen" style="margin:0 0 .3rem">
+            <strong>Bild {{ b.nr }}</strong>
+            <code class="marker" title="Klicken zum Kopieren">{{ b.marker }}</code>
+            <button type="button" class="link einfuegen" data-marker="{{ b.marker }}" data-ziel="text">in Aufgabe einfügen</button>
+            <button type="button" class="link einfuegen" data-marker="{{ b.marker }}" data-ziel="loesung">in Lösung einfügen</button>
+          </div>
+          <div class="aktionen" style="margin:0">
+            <select name="bild_{{ b.id }}_groesse" title="Standardgrösse">
+              {% for k, (label, _) in BILDGROESSEN.items() %}<option value="{{ k }}" {{ 'selected' if b.groesse == k }}>{{ label }}</option>{% endfor %}
+            </select>
+            <label><input type="checkbox" name="bild_{{ b.id }}_loesung" value="1" {{ 'checked' if b.nur_loesung }}> nur in der Lösung</label>
+            <label><input type="checkbox" name="bild_{{ b.id }}_loeschen" value="1"> löschen</label>
+          </div>
+          <input name="bild_{{ b.id }}_text" value="{{ b.beschriftung }}" placeholder="Bildunterschrift (optional)" style="width:100%; margin-top:.3rem">
+        </div>
+      </div>
+      {% endfor %}
+    </div>
     {% endif %}
+    <div class="card" style="padding:.7rem .9rem">
+      <label class="feld" style="margin-bottom:.4rem">Grafiken hinzufügen (mehrere möglich: Foto, Diagramm, Screenshot, PDF-Seite)
+        <input type="file" name="bilder_neu" accept="image/*,application/pdf" multiple></label>
+      <div class="aktionen" style="margin:0">
+        <select name="neu_groesse">{% for k, (label, _) in BILDGROESSEN.items() %}<option value="{{ k }}">{{ label }}</option>{% endfor %}</select>
+        <label><input type="checkbox" name="neu_loesung" value="1"> nur in der Lösung</label>
+      </div>
+    </div>
     <h3>Zuordnung</h3>
     <p class="muted">Gewählte Lernziele bringen ihre BiVo-Leistungsziele automatisch mit.</p>
     {{ auswahl(themen, bereiche,
@@ -58,4 +91,22 @@
   <button class="link">Als Vorlage duplizieren (z. B. Variante mit anderen Zahlen)</button></form>
 {% endif %}
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='auswahl.js') }}"></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='auswahl.js') }}"></script>
+<script>
+  // Marker an der Cursorposition einfügen (eigene Zeile) bzw. in die Zwischenablage kopieren
+  document.querySelectorAll('.einfuegen').forEach(btn => btn.addEventListener('click', () => {
+    const ta = document.querySelector(`textarea[name=${btn.dataset.ziel}]`);
+    const pos = ta.selectionStart ?? ta.value.length;
+    const vor = ta.value.slice(0, pos), nach = ta.value.slice(pos);
+    const einf = (vor && !vor.endsWith('\n') ? '\n' : '') + btn.dataset.marker + (nach.startsWith('\n') ? '' : '\n');
+    ta.value = vor + einf + nach;
+    ta.focus();
+    ta.selectionStart = ta.selectionEnd = pos + einf.length;
+  }));
+  document.querySelectorAll('code.marker').forEach(c => c.addEventListener('click', () => {
+    const marker = c.textContent;
+    navigator.clipboard?.writeText(marker);
+    c.textContent = 'kopiert ✓';
+    setTimeout(() => { c.textContent = marker; }, 1200);
+  }));
+</script>{% endblock %}

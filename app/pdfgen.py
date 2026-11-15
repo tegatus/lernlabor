@@ -25,7 +25,7 @@ from reportlab.pdfgen import canvas as rl_canvas
 from reportlab.platypus import (CondPageBreak, Flowable, Image, KeepTogether, PageBreak, Paragraph,
                                 SimpleDocTemplate, Spacer, Table, TableStyle)
 
-from .markup import tabellen_abtrennen
+from .markup import RE_BILD, angehaengte_bilder, sichtbare_bilder, tabellen_abtrennen
 
 FONT_DIR = os.path.join(os.path.dirname(__file__), "static", "fonts")
 _fonts_ok = False
@@ -80,6 +80,8 @@ def _styles():
         "zelle": ParagraphStyle("zelle", parent=base, fontSize=9.5, leading=12),
         "zelle_b": ParagraphStyle("zelleb", parent=base, fontName="LS-B", fontSize=9.5, leading=12),
         "klein": ParagraphStyle("klein", parent=base, fontSize=9, leading=12),
+        "bildtext": ParagraphStyle("bildtext", parent=base, fontName="LS-I", fontSize=8.5, leading=11,
+                                   textColor=GRAU, spaceBefore=2),
     }
 
 
@@ -95,8 +97,14 @@ def inline(text):
     return t
 
 
-def markup_flowables(text, st, width=CONTENT_W):
-    """Wandelt die einfache Auszeichnung in eine Liste von Flowables um."""
+def markup_flowables(text, st, width=CONTENT_W, bilder=None, bild_pfad=None):
+    """Wandelt die einfache Auszeichnung in eine Liste von Flowables um.
+
+    bilder: {nr: AufgabeBild} der in diesem Kontext sichtbaren Bilder; bild_pfad: AufgabeBild -> Dateipfad.
+    Marker [[bild:NR]] / [[bild:NR|halb]] werden durch die Grafik ersetzt; mehrere Marker auf einer
+    Zeile stehen nebeneinander.
+    """
+    bilder = bilder or {}
     out = []
     blocks = re.split(r"\n\s*\n", tabellen_abtrennen(text).strip())
     for block in blocks:
@@ -116,6 +124,16 @@ def markup_flowables(text, st, width=CONTENT_W):
 
         for l in lines:
             s = l.strip()
+            treffer = [(int(m[1]), (m[2] or "").lower() or None) for m in RE_BILD.finditer(s)]
+            if treffer:
+                s = RE_BILD.sub("", s).strip()
+                if s:
+                    absatz.append(s)
+                flush()
+                zeile = _bildzeile([(bilder[nr], g) for nr, g in treffer if nr in bilder], st, width, bild_pfad)
+                if zeile:
+                    out += [Spacer(1, 3), zeile, Spacer(1, 5)]
+                continue
             if re.match(r"^[-•]\s+", s):
                 flush()
                 out.append(Paragraph(inline(re.sub(r"^[-•]\s+", "", s)), st["liste"], bulletText="•"))
@@ -206,6 +224,54 @@ def _bild_flowable(pfad, max_w=CONTENT_W, max_h=9 * cm):
     img = Image(pfad, width=w * f, height=h * f)
     img.hAlign = "LEFT"
     return img
+
+
+BILD_MAX_H = 11 * cm
+BILD_ABSTAND = 8
+
+
+def _bildzeile(eintraege, st, width, bild_pfad, max_h=BILD_MAX_H):
+    """Eine oder mehrere Grafiken nebeneinander. eintraege: [(AufgabeBild, groesse_override|None)]."""
+    from PIL import Image as PILImage
+    from .models import BILDGROESSEN
+    elemente = []
+    for b, groesse in eintraege:
+        pfad = bild_pfad(b) if bild_pfad else None
+        if not pfad or not os.path.exists(pfad):
+            continue
+        with PILImage.open(pfad) as im:
+            w, h = im.size
+        anteil = BILDGROESSEN.get(groesse or b.groesse, BILDGROESSEN["voll"])[1]
+        elemente.append((b, pfad, w, h, anteil))
+    if not elemente:
+        return None
+    platz = width - BILD_ABSTAND * (len(elemente) - 1)
+    summe = sum(e[4] for e in elemente)
+    faktor = min(1.0, platz / (summe * width)) if summe else 1.0
+    zellen, breiten = [], []
+    for i, (b, pfad, w, h, anteil) in enumerate(elemente):
+        ziel_w = anteil * width * faktor
+        f = min(ziel_w / w, max_h / h)
+        img = Image(pfad, width=w * f, height=h * f)
+        inhalt = [img]
+        if b.beschriftung:
+            inhalt.append(Paragraph(inline(b.beschriftung), st["bildtext"]))
+        zellen.append(inhalt)
+        breiten.append(ziel_w + (BILD_ABSTAND if i < len(elemente) - 1 else 0))
+    t = Table([zellen], colWidths=breiten, hAlign="LEFT")
+    t.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                           ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                           ("VALIGN", (0, 0), (-1, -1), "BOTTOM")]))
+    return t
+
+
+def _angehaengt(liste, st, width, bild_pfad):
+    out = []
+    for b in liste:
+        z = _bildzeile([(b, None)], st, width, bild_pfad)
+        if z:
+            out += [Spacer(1, 4), z]
+    return out
 
 
 def _punkte_str(p):
@@ -303,10 +369,9 @@ def _aufgaben_kopf(st, nr, aufgabe, zusatz_meta=True):
 def _aufgaben_story(st, aufgaben, bild_pfad, mit_meta=True):
     story = []
     for nr, a in enumerate(aufgaben, 1):
-        teile = _aufgaben_kopf(st, nr, a, mit_meta) + markup_flowables(a.text, st)
-        bild = _bild_flowable(bild_pfad(a)) if a.bild else None
-        if bild:
-            teile += [Spacer(1, 4), bild]
+        teile = _aufgaben_kopf(st, nr, a, mit_meta)
+        teile += markup_flowables(a.text, st, CONTENT_W, sichtbare_bilder(a, "aufgabe"), bild_pfad)
+        teile += _angehaengt(angehaengte_bilder(a)[0], st, CONTENT_W, bild_pfad)
         if a.antwortformat != "keins" and a.antwortraum_cm:
             teile += [Spacer(1, 6), Antwortfeld(a.antwortraum_cm, a.antwortformat)]
         # Aufgabe möglichst nicht über einen Seitenumbruch verteilen
@@ -319,12 +384,13 @@ def _loesungs_story(st, aufgaben, bild_pfad):
     story = []
     for nr, a in enumerate(aufgaben, 1):
         teile = _aufgaben_kopf(st, nr, a, True)
-        aufgabe_txt = markup_flowables(a.text, st)
-        teile += aufgabe_txt
-        bild = _bild_flowable(bild_pfad(a), max_h=6 * cm) if a.bild else None
-        if bild:
-            teile.append(bild)
-        loes = markup_flowables(a.loesung or "(keine Musterlösung hinterlegt)", st, CONTENT_W - 0.6 * cm)
+        teile += markup_flowables(a.text, st, CONTENT_W, sichtbare_bilder(a, "aufgabe"), bild_pfad)
+        fuer_aufgabe, fuer_loesung = angehaengte_bilder(a)
+        teile += _angehaengt(fuer_aufgabe, st, CONTENT_W, bild_pfad)
+        lw = CONTENT_W - 0.6 * cm
+        loes = markup_flowables(a.loesung or "(keine Musterlösung hinterlegt)", st, lw,
+                                sichtbare_bilder(a, "loesung"), bild_pfad)
+        loes += _angehaengt(fuer_loesung, st, lw, bild_pfad)
         box = Table([[Paragraph("<b>Lösung</b>", st["klein"])]] + [[f] for f in loes], colWidths=[CONTENT_W])
         box.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), LOESUNG_BG),
                                  ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#7aa87a")),

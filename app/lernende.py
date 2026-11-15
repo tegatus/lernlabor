@@ -12,8 +12,9 @@ from .selection import auswahl_beschreiben, filter_aufgaben, waehle_uebungsaufga
 bp = Blueprint("lernende", __name__)
 
 
-def bild_pfad(aufgabe):
-    return storage.absolut(aufgabe.bild) if aufgabe.bild else None
+def bild_pfad(bild):
+    """AufgabeBild -> absoluter Dateipfad (für die PDF-Erzeugung)."""
+    return storage.absolut(bild.datei) if bild and bild.datei else None
 
 
 def blatt_pdf_rel(blatt, art):
@@ -172,13 +173,3 @@ def seite_bild(seite_id):
     rel = s.bild_korrigiert if korrigiert and s.bild_korrigiert else s.bild
     return send_file(storage.absolut(rel), mimetype="image/png" if rel.endswith(".png") else "image/jpeg",
                      max_age=0)
-
-
-@bp.route("/aufgabenbild/<int:aufgabe_id>")
-@login_required
-def aufgabenbild(aufgabe_id):
-    from .models import Aufgabe
-    a = db.get_or_404(Aufgabe, aufgabe_id)
-    if not a.bild or (not current_user.ist_lp and a.verwendung == "pruefung"):
-        abort(404)
-    return send_file(storage.absolut(a.bild))

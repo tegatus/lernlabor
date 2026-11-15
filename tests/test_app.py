@@ -163,3 +163,100 @@ def test_aufgabe_anlegen_und_export(app):
 def test_csrf_schutz(tmp_path):
     app = create_app({"SQLALCHEMY_DATABASE_URI": f"sqlite:///{tmp_path}/c.sqlite", "UPLOAD_DIR": str(tmp_path / "d")})
     assert app.test_client().post("/login", data={"benutzername": "x", "passwort": "y"}).status_code == 400
+
+
+# ---------------------------------------------------------------- Grafiken in Aufgaben
+
+def _bild(farbe, groesse=(400, 300)):
+    buf = io.BytesIO()
+    Image.new("RGB", groesse, farbe).save(buf, "PNG")
+    buf.seek(0)
+    return buf
+
+
+def _anzahl_bilder(pdf_bytes):
+    return sum(len(p.images) for p in PdfReader(io.BytesIO(pdf_bytes)).pages)
+
+
+def test_mehrere_bilder_platziert_und_nur_loesung(app):
+    from app.models import AufgabeBild
+    lp = app.test_client()
+    login(lp, "lp", "lp-demo-2026")
+    basis = {"titel": "Gel auswerten", "punkte": "4", "k_stufe": "3", "antwortformat": "linien",
+             "antwortraum_cm": "4", "verwendung": "beide", "aktiv": "1", "neues_thema": "Gelelektrophorese"}
+    r = lp.post("/lp/aufgaben/neu", data={**basis, "text": "Schau dir das Gel an.", "loesung": "Siehe Bild.",
+                                          "bilder_neu": [(_bild("red"), "gel.png"), (_bild("blue"), "marker.png")],
+                                          "neu_groesse": "halb"},
+                content_type="multipart/form-data", follow_redirects=True)
+    assert "Aufgabe gespeichert" in r.get_data(as_text=True)
+    with app.app_context():
+        a = Aufgabe.query.filter_by(titel="Gel auswerten").one()
+        assert [(b.nr, b.groesse) for b in a.bilder] == [(1, "halb"), (2, "halb")]
+        aid, b1, b2 = a.id, a.bilder[0].id, a.bilder[1].id
+    # drittes Bild nur für die Lösung, Bilder 1+2 nebeneinander, Bild 3 in der Lösung platziert, Tippfehler-Marker
+    r = lp.post(f"/lp/aufgaben/{aid}", data={
+        **basis, "text": "Schau dir das Gel an.\n[[bild:1]] [[bild:2|drittel]]\nWelche Bande ist das Produkt?\n[[bild:7]]",
+        "loesung": "Bande bei 500 bp:\n[[bild:3]]", f"bild_{b1}_groesse": "halb", f"bild_{b1}_text": "Agarosegel 1 %",
+        f"bild_{b2}_groesse": "halb", "bilder_neu": [(_bild("green"), "loesung.png")], "neu_loesung": "1"},
+        content_type="multipart/form-data", follow_redirects=True)
+    html = r.get_data(as_text=True)
+    assert "[[bild:7]] verweist auf ein Bild, das es nicht gibt" in html
+    with app.app_context():
+        a = db.session.get(Aufgabe, aid)
+        assert [(b.nr, b.nur_loesung) for b in a.bilder] == [(1, False), (2, False), (3, True)]
+        assert a.bilder[0].beschriftung == "Agarosegel 1 %"
+        from app.lernende import bild_pfad
+        from app import pdfgen
+        from datetime import datetime
+        with db.session.no_autoflush:
+            blatt = Uebungsblatt(id=9999, lernende=User.query.filter_by(benutzername="lea").one(), titel="Gel",
+                                 erstellt_am=datetime(2026, 11, 16))
+            from app.models import BlattAufgabe
+            blatt.aufgaben.append(BlattAufgabe(aufgabe=a, position=1))
+            aufgabenblatt = pdfgen.uebungsblatt_pdf(blatt, bild_pfad)
+            loesungsblatt = pdfgen.uebungsblatt_pdf(blatt, bild_pfad, loesung=True)
+        db.session.rollback()
+    assert _anzahl_bilder(aufgabenblatt) == 2          # Lösungsbild ist NICHT auf dem Aufgabenblatt
+    assert _anzahl_bilder(loesungsblatt) == 3
+    assert "Agarosegel 1 %" in pdf_text(aufgabenblatt)
+    assert "[[bild" not in pdf_text(aufgabenblatt)
+
+    # Bild löschen: Nummern der übrigen bleiben stabil
+    lp.post(f"/lp/aufgaben/{aid}", data={**basis, "text": "x", "loesung": "y", f"bild_{b1}_loeschen": "1",
+                                          f"bild_{b2}_groesse": "voll"}, content_type="multipart/form-data")
+    with app.app_context():
+        assert [b.nr for b in db.session.get(Aufgabe, aid).bilder] == [2, 3]
+        bid = AufgabeBild.query.first().id
+    # Lernende kommen nicht an die Bilddateien heran
+    c = app.test_client()
+    login(c, "lea", "lernen-2026")
+    assert c.get(f"/lp/aufgabenbild/{bid}").status_code == 403
+    assert lp.get(f"/lp/aufgabenbild/{bid}").status_code == 200
+
+
+def test_bildzeile_skaliert_nebeneinander():
+    from types import SimpleNamespace
+    import tempfile, os
+    from app.pdfgen import CONTENT_W, _bildzeile, _styles
+    d = tempfile.mkdtemp()
+    pfade = []
+    for i, f in enumerate(["red", "blue", "green"]):
+        p = os.path.join(d, f"{i}.png")
+        Image.new("RGB", (800, 400), f).save(p)
+        pfade.append(p)
+    bilder = [SimpleNamespace(groesse="halb", beschriftung="", p=p) for p in pfade]
+    t = _bildzeile([(b, None) for b in bilder], _styles(), CONTENT_W, lambda b: b.p)
+    assert sum(t._colWidths) <= CONTENT_W + 0.01   # 3 × halb passt nicht → wird verkleinert
+    t2 = _bildzeile([(bilder[0], "viertel")], _styles(), CONTENT_W, lambda b: b.p)
+    assert abs(t2._colWidths[0] - CONTENT_W / 4) < 0.01
+
+
+def test_altes_einzelbild_wird_migriert(app):
+    from app.models import migriere_einzelbilder
+    with app.app_context():
+        a = Aufgabe.query.first()
+        a.bild = "aufgabenbilder/alt.jpg"
+        db.session.commit()
+        migriere_einzelbilder()
+        a = db.session.get(Aufgabe, a.id)
+        assert a.bild is None and [(b.nr, b.datei) for b in a.bilder] == [(1, "aufgabenbilder/alt.jpg")]
