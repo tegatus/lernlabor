@@ -387,3 +387,149 @@ def test_spalten_werden_nachgetragen(tmp_path):
     with app.app_context():
         a = Aufgabe.query.one()
         assert a.typ == "frei" and a.daten == "{}"
+
+
+# ---------------------------------------------------------------- KI-Assistent (mit simuliertem API-Client)
+
+from types import SimpleNamespace
+
+
+class FakeClaude:
+    """Ersetzt anthropic.Anthropic: zeichnet Anfragen auf und liefert vorbereitete JSON-Antworten."""
+
+    def __init__(self, antworten, stop_reason="end_turn"):
+        self.antworten, self.anfragen, self.stop_reason = list(antworten), [], stop_reason
+        self.beta = SimpleNamespace(messages=SimpleNamespace(create=self._create))
+        self.messages = SimpleNamespace(create=self._create)
+
+    def _create(self, **kw):
+        self.anfragen.append(kw)
+        return SimpleNamespace(content=[SimpleNamespace(type="text", text=json.dumps(self.antworten.pop(0)))],
+                               stop_reason=self.stop_reason, model=kw["model"],
+                               usage=SimpleNamespace(input_tokens=1200, output_tokens=800,
+                                                     cache_read_input_tokens=0, cache_creation_input_tokens=3000))
+
+
+@pytest.fixture
+def ki_app(app, monkeypatch):
+    app.config["ANTHROPIC_API_KEY"] = "sk-test"
+    return app
+
+
+def _lp_client(app):
+    c = app.test_client()
+    login(c, "lp", "lp-demo-2026")
+    return c
+
+
+def test_ki_standby_ohne_schluessel(app, monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    lp = _lp_client(app)
+    r = lp.post("/lp/ki/entwurf", json={"wunsch": "x"})
+    assert r.status_code == 503 and "nicht aktiviert" in r.get_json()["fehler"]
+    seite = lp.get("/lp/aufgaben/neu").get_data(as_text=True)
+    assert "KI-Assistent nicht aktiviert" in seite and 'id="ki-panel"' not in seite
+    assert "So wird er eingeschaltet" in lp.get("/lp/ki").get_data(as_text=True)
+
+
+def test_ki_entwurf_anfrage_und_validierung(ki_app, monkeypatch):
+    from app import ki
+    antwort = {"titel": "Verdünnung berechnen", "typ": "rechnung",
+               "text": "Verdünne {v} µL Stammlösung (c = {c0} mM) auf {ve} µL. Welche Konzentration entsteht?",
+               "loesung": "c = {c0} × {v} / {ve} = **{c} mM** (2 P.)",
+               "daten_json": json.dumps({"variablen": [{"name": "v", "min": 10, "max": 50, "schritt": 5},
+                                                       {"name": "c0", "min": 10, "max": 100, "schritt": 10},
+                                                       {"name": "ve", "min": 500, "max": 1000, "schritt": 100}],
+                                         "ergebnisse": [{"name": "c", "formel": "c0 * v / ve", "stellen": 3}]}),
+               "punkte": 2, "k_stufe": 3, "antwortformat": "karo", "antwortraum_cm": 5, "kommentar": "Annahme: Wasser"}
+    fake = FakeClaude([antwort])
+    monkeypatch.setattr(ki, "_client", lambda: fake)
+    lp = _lp_client(ki_app)
+    assert 'id="ki-panel"' in lp.get("/lp/aufgaben/neu").get_data(as_text=True)
+    with ki_app.app_context():
+        lz = Lernziel.query.join(Thema).filter(Thema.name == "qPCR", Lernziel.bereich == "a", Lernziel.nummer == 9).one()
+        lz_id, lz_text = lz.id, lz.text
+    r = lp.post("/lp/ki/entwurf", json={"lernziele": [lz_id], "typ": "rechnung", "k_stufe": "3", "wunsch": "einfach"})
+    d = r.get_json()
+    assert r.status_code == 200 and d["aufgabe"]["typ"] == "rechnung" and d["hinweise"] == []
+    assert d["aufgabe"]["daten"]["ergebnisse"][0]["formel"] == "c0 * v / ve"
+    kw = fake.anfragen[0]
+    assert kw["model"] == "claude-opus-5-5" and kw["fallbacks"] == "default"
+    assert kw["betas"] == ["server-side-fallback-2026-07-01"]
+    assert kw["output_config"]["format"]["type"] == "json_schema" and kw["output_config"]["effort"] == "medium"
+    assert lz_text in kw["messages"][0]["content"] and "ß" in kw["system"]           # Lernziel + Rechtschreibregel
+    assert "Lea" not in json.dumps(kw, ensure_ascii=False)                              # keine Lernendendaten
+    from app.models import KiProtokoll
+    with ki_app.app_context():
+        p = KiProtokoll.query.one()
+        assert (p.aktion, p.input_tokens, p.output_tokens, p.cache_schreiben) == ("entwurf", 1200, 800, 3000)
+    seite = lp.get("/lp/ki").get_data(as_text=True)
+    assert "aktiv" in seite and "Dieser Monat" in seite
+
+
+def test_ki_fehlerhafte_formel_wird_gemeldet(ki_app, monkeypatch):
+    from app import ki
+    kaputt = {"titel": "x", "typ": "rechnung", "text": "{a}", "loesung": "{b}",
+              "daten_json": json.dumps({"variablen": [{"name": "a", "min": 0, "max": 2, "schritt": 1}],
+                                        "ergebnisse": [{"name": "b", "formel": "1 / a", "stellen": 3}]}),
+              "punkte": 99, "k_stufe": 3, "antwortformat": "unbekannt", "antwortraum_cm": 5, "kommentar": ""}
+    monkeypatch.setattr(ki, "_client", lambda: FakeClaude([kaputt]))
+    d = _lp_client(ki_app).post("/lp/ki/entwurf", json={"wunsch": "x"}).get_json()
+    assert any("Division durch null" in h for h in d["hinweise"])
+    assert d["aufgabe"]["punkte"] == 50 and d["aufgabe"]["antwortformat"] == "linien"     # Werte begrenzt
+
+
+def test_ki_tags_nur_aus_katalog(ki_app, monkeypatch):
+    from app import ki
+    fake = FakeClaude([{"themen": ["qPCR", "Erfunden"], "lernziele": ["qPCR a9", "qPCR z99"],
+                        "bivo": ["a.2.3", "x.9.9"], "k_stufe": 3, "begruendung": "Rechnung"}])
+    monkeypatch.setattr(ki, "_client", lambda: fake)
+    d = _lp_client(ki_app).post("/lp/ki/tags", json={"text": "Master-Mix berechnen", "loesung": ""}).get_json()
+    with ki_app.app_context():
+        qpcr = Thema.query.filter_by(name="qPCR").one()
+        a9 = next(l.id for l in qpcr.lernziele if l.kuerzel == "a9")
+        assert d["themen"] == [qpcr.id] and d["lernziele"] == [a9] and d["bivo"] == ["a.2.3"]
+    assert fake.anfragen[0]["output_config"]["effort"] == "low"
+    assert "qPCR a15:" in fake.anfragen[0]["system"]                                   # Katalog im (gecachten) System-Prompt
+
+
+def test_ki_pruefen_und_ablehnung(ki_app, monkeypatch):
+    from app import ki
+    befund = {"urteil": "fehler_gefunden", "zusammenfassung": "Rechenfehler",
+              "befunde": [{"schwere": "fehler", "bereich": "loesung", "beschreibung": "0,4 × 20 / 10 = 0,8, nicht 8",
+                           "vorschlag": "korrigieren"}]}
+    fake = FakeClaude([befund])
+    monkeypatch.setattr(ki, "_client", lambda: fake)
+    lp = _lp_client(ki_app)
+    with ki_app.app_context():
+        a = Aufgabe.query.filter_by(typ="rechnung").first().to_dict()
+    d = lp.post("/lp/ki/pruefen", json=a).get_json()
+    assert d["urteil"] == "fehler_gefunden" and fake.anfragen[0]["output_config"]["effort"] == "high"
+    assert "Gerenderte Variante 1" in fake.anfragen[0]["messages"][0]["content"]       # konkrete Zahlen zum Nachrechnen
+    monkeypatch.setattr(ki, "_client", lambda: FakeClaude([befund], stop_reason="refusal"))
+    r = lp.post("/lp/ki/pruefen", json=a)
+    assert r.status_code == 502 and "abgelehnt" in r.get_json()["fehler"]
+
+
+def test_variante_als_neue_aufgabe_mit_bildern(app):
+    lp = _lp_client(app)
+    basis = {"titel": "Original", "text": "Gel [[bild:1]]", "loesung": "l", "punkte": "2", "antwortformat": "linien",
+             "antwortraum_cm": "3", "verwendung": "beide", "aktiv": "1"}
+    lp.post("/lp/aufgaben/neu", data={**basis, "bilder_neu": [(_bild("red"), "gel.png")]}, content_type="multipart/form-data")
+    with app.app_context():
+        orig = Aufgabe.query.filter_by(titel="Original").one()
+        oid = orig.id
+    lp.post("/lp/aufgaben/neu", data={**basis, "titel": "Variante (KI)", "bilder_von": oid}, content_type="multipart/form-data")
+    with app.app_context():
+        v = Aufgabe.query.filter_by(titel="Variante (KI)").one()
+        assert [b.nr for b in v.bilder] == [1] and v.id != oid
+        assert len(db.session.get(Aufgabe, oid).bilder) == 1
+
+
+def test_lernziel_vorauswahl_im_editor(app):
+    lp = _lp_client(app)
+    with app.app_context():
+        lz = Lernziel.query.first()
+        lz_id, th_id = lz.id, lz.thema_id
+    html = lp.get(f"/lp/aufgaben/neu?lernziel={lz_id}").get_data(as_text=True)
+    assert f'name="lernziel" value="{lz_id}" checked' in html and f'name="thema" value="{th_id}" checked' in html

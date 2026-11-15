@@ -12,13 +12,15 @@
   <summary>{{ t.name }} <span class="muted">({{ t.lernziele|length }} Lernziele)</span></summary>
   {% if t.lernziele %}
   <table class="tab">
-    <tr><th>Nr.</th><th>Lernziel</th><th>BiVo</th><th>K</th><th>Übung</th><th>Prüfung</th></tr>
+    <tr><th>Nr.</th><th>Lernziel</th><th>BiVo</th><th>K</th><th>Übung</th><th>Prüfung</th><th></th></tr>
     {% for lz in t.lernziele %}
     {% set u, p = zaehler[(lz.id, 'u')], zaehler[(lz.id, 'p')] %}
     <tr><td><span class="code">{{ lz.kuerzel }}</span></td><td>{{ lz.text }}</td>
         <td>{% for l in lz.leistungsziele %}<span class="code" title="{{ l.text }}">{{ l.code }}</span>{% endfor %}</td>
         <td>K{{ lz.k_stufe }}</td>
-        <td class="{{ 'luecke' if not u }}">{{ u }}</td><td class="{{ 'luecke' if not p }}">{{ p }}</td></tr>
+        <td class="{{ 'luecke' if not u }}">{{ u }}</td><td class="{{ 'luecke' if not p }}">{{ p }}</td>
+        <td><a href="{{ url_for('lp.aufgabe_bearbeiten', lernziel=lz.id) }}" class="btn klein sek"
+               title="Neue Aufgabe zu diesem Lernziel{{ ' – mit KI-Entwurf' if ki_aktiv }}">+ Aufgabe</a></td></tr>
     {% endfor %}
   </table>
   {% endif %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}KI-Assistent{% endblock %}
+{% block content %}
+<h1>🤖 KI-Assistent</h1>
+{% if aktiv %}
+  <div class="flash ok">Der KI-Assistent ist <strong>aktiv</strong> (Modell <code>{{ modell }}</code>).
+    Er steht im Aufgaben-Editor zur Verfügung.</div>
+{% else %}
+  <div class="flash info">Der KI-Assistent ist <strong>nicht aktiviert</strong>. Alle anderen Funktionen arbeiten normal.</div>
+  <div class="card">
+    <h3 style="margin-top:0">So wird er eingeschaltet (einmalig, durch die Person, die den Server betreut)</h3>
+    <ol>
+      <li>In der <strong>Claude Console</strong> (platform.claude.com) ein Konto der Schule anlegen, Guthaben aufladen und
+        unter «API Keys» einen Schlüssel erstellen.</li>
+      <li>Dort unter «Limits» ein <strong>monatliches Ausgabenlimit</strong> festlegen (z. B. 20 USD).</li>
+      <li>Auf dem Server die Umgebungsvariable <code>ANTHROPIC_API_KEY</code> setzen und die App neu starten.
+        Der Schlüssel bleibt auf dem Server; Lehrpersonen und Lernende sehen ihn nie.</li>
+    </ol>
+    <p class="muted">Optional: <code>KI_MODELL</code> (Standard <code>claude-opus-5-5</code>), <code>KI_AKTIV=0</code> zum
+      vorübergehenden Ausschalten. Die Abrechnung erfolgt über die Claude API pro Nutzung – nicht über ein Claude-Abo.</p>
+  </div>
+{% endif %}
+
+<div class="card">
+  <h3 style="margin-top:0">Was der Assistent kann</h3>
+  <ul>
+    <li><strong>Entwurf</strong>: neue Aufgabe mit Musterlösung zu gewählten Lernzielen, in jedem Aufgabentyp
+      (auch Rechenaufgaben mit variablen Zahlen).</li>
+    <li><strong>Prüfen</strong>: rechnet Zahlen nach, findet Widersprüche zwischen Aufgabe und Lösung, fehlende Angaben,
+      Einheiten, Punkteverteilung und Sprache.</li>
+    <li><strong>Zuordnen</strong>: schlägt Thema, Lernziele, BiVo-Codes und K-Stufe vor.</li>
+    <li><strong>Variante</strong>: andere Zahlen, einfacher/anspruchsvoller, auf Englisch oder als anderer Aufgabentyp.</li>
+  </ul>
+  <p class="muted">Datenschutz: Übermittelt werden ausschliesslich Aufgabeninhalte und Lernziele – keine Namen, Abgaben
+    oder Leistungen von Lernenden. Vorschläge werden nie automatisch gespeichert.</p>
+</div>
+
+{% if gesamt.anzahl %}
+<h2>Verbrauch</h2>
+<table class="tab">
+  <tr><th></th><th>Anfragen</th><th>Tokens Input</th><th>Tokens Output</th><th>Kosten (Schätzung)</th></tr>
+  {% for label, z in [('Dieser Monat', monat), ('Letzter Monat', vormonat), ('Total', gesamt)] %}
+  <tr><td>{{ label }}</td><td>{{ z.anzahl }}</td><td>{{ '{:,}'.format(z.input).replace(',', "'") }}</td>
+      <td>{{ '{:,}'.format(z.output).replace(',', "'") }}</td><td>≈ {{ '%.2f'|format(z.usd) }} USD</td></tr>
+  {% endfor %}
+</table>
+<p class="muted">Die Schätzung beruht auf den Listenpreisen; massgebend ist die Abrechnung in der Claude Console.</p>
+<h3>Letzte Anfragen</h3>
+<table class="tab">
+  <tr><th>Zeit</th><th>Lehrperson</th><th>Aktion</th><th>Modell</th><th>Tokens (in/out)</th><th>≈ USD</th></tr>
+  {% for p in letzte %}
+  <tr><td>{{ p.zeit|datum(true) }}</td><td>{{ p.lp.anzeigename if p.lp }}</td><td>{{ p.aktion }}</td><td>{{ p.modell }}</td>
+      <td>{{ p.input_tokens + p.cache_lesen + p.cache_schreiben }} / {{ p.output_tokens }}</td><td>{{ '%.3f'|format(kosten_usd(p)) }}</td></tr>
+  {% endfor %}
+</table>
+{% endif %}
+{% endblock %}

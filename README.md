@@ -33,6 +33,10 @@ online korrigierte Rückmeldung. Lehrpersonen generieren aus derselben Datenbank
 - **Komfortabler Editor**: Live-Vorschau von Aufgabenblatt und Lösung, Screenshots per Ctrl+V einfügen oder Bilder
   hineinziehen, Werkzeugleiste (fett, kursiv, hoch-/tiefgestellt, Listen, Teilaufgaben, Tabelle, Sonderzeichen) und
   Formel-Assistent für chemische Formeln (H2SO4 → H₂SO₄, SO42- → SO₄²⁻).
+- **KI-Assistent (optional, im Standby)**: Entwurf aus Lernzielen (in jedem Aufgabentyp), Lösung prüfen
+  (rechnet nach, auch mit konkreten Zahlenvarianten), Zuordnung vorschlagen (Thema, Lernziele, BiVo, K-Stufe) und
+  Varianten erstellen (andere Zahlen, einfacher/anspruchsvoller, Englisch, anderer Typ). Wird erst aktiv, wenn
+  `ANTHROPIC_API_KEY` gesetzt ist – siehe unten. Lernziele ohne Aufgabe haben in der Übersicht einen «+ Aufgabe»-Knopf.
 - **Aufgabenverwaltung**: einfache Auszeichnung (fett, Listen, Tabellen, tief-/hochgestellt), Punkte, K-Stufe,
   Antwortfeld, Verwendung (*Übung & Prüfung*, *nur Übung*, *nur Prüfung* – Letztere sehen Lernende nie), PDF-Vorschau,
   Duplizieren als Variante, JSON-Export/-Import zum Austausch zwischen Lehrpersonen (ohne Bilddateien).
@@ -68,10 +72,13 @@ Tests: `.venv/bin/python -m pytest`
 |---|---|
 | `app/models.py` | Datenmodell (Bereich → Handlungskompetenz → Leistungsziel; Thema → Lernziel; Aufgabe; Übungsblatt, Abgabe, Seite; Prüfung) |
 | `app/importers.py` | Excel-Import BiVo, Lernziel-Parser (Text/PDF), Aufgaben-JSON |
+| `app/aufgabentypen.py` | Aufgabentypen, variable Zahlen (sichere Formelauswertung), Rendering pro Seed |
+| `app/ki.py` | KI-Assistent (Claude API, strukturierte Antworten, Verbrauchsprotokoll) |
 | `app/selection.py` | Aufgabenauswahl für Übungsblätter, Prüfungsgenerator (Greedy-Abdeckung + Auffüllen) |
 | `app/pdfgen.py` | Alle PDFs (ReportLab) inkl. Antwortfelder und Auszeichnungssprache |
 | `app/lernende.py`, `app/lp.py`, `app/auth.py` | Routen für Lernende, Lehrpersonen, Login |
 | `app/static/korrektur.js` | Annotationswerkzeug (Canvas, Pointer Events) |
+| `app/static/editor.js`, `aufgabentypen.js`, `ki.js` | Aufgaben-Editor: Werkzeugleiste, Bilder, Live-Vorschau, Typen, KI |
 | `app/seed_data/` | Ausgangsdaten (Excel, Lernziele, Beispielaufgaben) |
 
 Daten liegen in `instance/` (SQLite-Datenbank `lernlabor.sqlite`, Uploads in `instance/dateien/`).
@@ -80,18 +87,33 @@ Für ein Backup genügt es, diesen Ordner zu sichern.
 ## Betrieb an der Schule (Hinweise)
 
 - Produktiv mit einem WSGI-Server hinter HTTPS betreiben, z. B. `pip install gunicorn` und
-  `gunicorn -w 3 -b 127.0.0.1:8000 run:app` hinter nginx/Caddy. Nie den Flask-Entwicklungsserver öffnen.
+  `gunicorn -w 3 --timeout 180 -b 127.0.0.1:8000 run:app` hinter nginx/Caddy. Nie den Flask-Entwicklungsserver öffnen.
 - `SECRET_KEY` als Umgebungsvariable setzen (sonst wird einer in `instance/secret_key` erzeugt).
 - Für mehrere Lehrpersonen gleichzeitig: `DATABASE_URL` auf PostgreSQL zeigen lassen (SQLAlchemy, keine Codeänderung nötig).
 - Datenschutz (revDSG): Es werden Namen, Leistungen und Fotos von Handschrift gespeichert. Hosting in der Schweiz
   bzw. auf schuleigener Infrastruktur, Zugriff nur für zuständige Lehrpersonen (ist so umgesetzt: eine LP sieht nur
   Lernende ihrer Klassen), Löschkonzept nach Lehrabschluss mit der Schulleitung klären.
 
+## KI-Assistent einschalten
+
+Der Assistent nutzt die **Claude API** (Abrechnung pro Nutzung über die Claude Console, unabhängig von einem
+Claude-Abo). Ohne Schlüssel bleibt er ausgeschaltet und die App funktioniert unverändert.
+
+1. In der Claude Console (platform.claude.com) ein Konto der Schule anlegen, Guthaben aufladen, einen API-Schlüssel
+   erstellen und ein monatliches Ausgabenlimit setzen.
+2. Auf dem Server `ANTHROPIC_API_KEY=...` als Umgebungsvariable setzen und die App neu starten.
+3. Optional: `KI_MODELL` (Standard `claude-opus-5-5`), `KI_AKTIV=0` (vorübergehend aus),
+   `KI_PREIS_INPUT` / `KI_PREIS_OUTPUT` / `KI_PREIS_CACHE_LESEN` (USD pro Million Tokens) für die Kostenschätzung.
+
+Unter **KI** in der Navigation stehen Status, Verbrauch und geschätzte Kosten. Übermittelt werden nur
+Aufgabeninhalte und Lernziele, keine Daten von Lernenden. Eine KI-Anfrage dauert typischerweise 10–60 Sekunden;
+beim Betrieb mit gunicorn deshalb `--timeout 180` setzen.
+
 ## Mögliche nächste Schritte
 
+- Visueller Editor (Tiptap) mit HTML-zu-PDF-Ausgabe (WeasyPrint), damit Vorschau und Druck identisch sind.
 - Anmeldung über Schul-Login (Microsoft 365 / Edulog) statt eigener Passwörter.
 - QR-Code auf jedem Blatt, damit Uploads automatisch zugeordnet und Seiten sortiert werden.
-- Aufgaben mit Zufallszahlen (Parameter + Formel für die Lösung), damit jedes Blatt andere Werte hat.
 - Prüfungen ebenfalls hochladen und online korrigieren (gleiches Werkzeug wie bei Übungsblättern).
 - Lernstand pro Lernziel über die Zeit (Heatmap pro Klasse).
 

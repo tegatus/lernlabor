@@ -8,3 +8,4 @@ pypdf==7.1.0
 pypdfium2
 openpyxl==3.1.5
 pytest==9.2.0
+anthropic>=2.8

@@ -232,8 +232,13 @@ def aufgaben():
 
 
 def _formular_kontext(aufgabe):
+    from .ki import ki_aktiv
+    vorauswahl = {"lernziele": [int(x) for x in request.args.getlist("lernziel") if x.isdigit()],
+                  "themen": [int(x) for x in request.args.getlist("thema") if x.isdigit()]}
+    if vorauswahl["lernziele"] and not vorauswahl["themen"]:
+        vorauswahl["themen"] = sorted({lz.thema_id for lz in Lernziel.query.filter(Lernziel.id.in_(vorauswahl["lernziele"]))})
     return dict(aufgabe=aufgabe, themen=Thema.query.order_by(Thema.name).all(),
-                bereiche=Bereich.query.order_by(Bereich.code).all())
+                bereiche=Bereich.query.order_by(Bereich.code).all(), vorauswahl=vorauswahl, ki_aktiv=ki_aktiv())
 
 
 @bp.route("/aufgaben/neu", methods=["GET", "POST"])
@@ -273,6 +278,10 @@ def aufgabe_bearbeiten(aufgabe_id=None):
         for lz in a.lernziele:  # Lernziele bringen ihre BiVo-Leistungsziele automatisch mit
             codes |= {l.code for l in lz.leistungsziele}
         a.leistungsziele = Leistungsziel.query.filter(Leistungsziel.code.in_(codes)).all()
+        vorlage = db.session.get(Aufgabe, f.get("bilder_von", type=int) or 0) if not a.id else None
+        if vorlage:  # Variante als neue Aufgabe: Grafiken der Ausgangsaufgabe übernehmen
+            a.bilder = [AufgabeBild(nr=b.nr, datei=b.datei, groesse=b.groesse, nur_loesung=b.nur_loesung,
+                                    beschriftung=b.beschriftung) for b in vorlage.bilder]
         _bilder_speichern(a, f, request.files.getlist("bilder_neu"))
         db.session.add(a)
         db.session.commit()
@@ -398,7 +407,8 @@ def lernziele():
             zaehler[(lz.id, "u" if a.verwendung != "pruefung" else "p")] += 1
             if a.verwendung == "beide":
                 zaehler[(lz.id, "p")] += 1
-    return render_template("lp/lernziele.html", themen=themen, zaehler=zaehler)
+    from .ki import ki_aktiv
+    return render_template("lp/lernziele.html", themen=themen, zaehler=zaehler, ki_aktiv=ki_aktiv())
 
 
 @bp.route("/lernziele/import", methods=["GET", "POST"])
@@ -571,3 +581,81 @@ def pruefung_pdf(pruefung_id, art):
     name = re.sub(r"[^A-Za-z0-9_-]+", "_", p.titel)[:60]
     return send_file(io.BytesIO(daten), mimetype="application/pdf",
                      download_name=f"{name}{'_Loesung' if art == 'loesung' else ''}.pdf")
+
+
+# ---------------------------------------------------------------- KI-Assistent
+
+@bp.route("/ki")
+@lp_required
+def ki_status():
+    from datetime import datetime, timedelta
+    from .ki import kosten_usd, ki_aktiv, modell
+    from .models import KiProtokoll
+    monatsbeginn = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    def zusammenfassen(eintraege):
+        zs = {"anzahl": 0, "input": 0, "output": 0, "usd": 0.0, "aktionen": Counter()}
+        for p in eintraege:
+            zs["anzahl"] += 1
+            zs["input"] += p.input_tokens + p.cache_lesen + p.cache_schreiben
+            zs["output"] += p.output_tokens
+            zs["usd"] += kosten_usd(p)
+            zs["aktionen"][p.aktion] += 1
+        return zs
+    monat = zusammenfassen(KiProtokoll.query.filter(KiProtokoll.zeit >= monatsbeginn))
+    vormonat = zusammenfassen(KiProtokoll.query.filter(KiProtokoll.zeit < monatsbeginn,
+                                                        KiProtokoll.zeit >= (monatsbeginn - timedelta(days=1)).replace(day=1)))
+    gesamt = zusammenfassen(KiProtokoll.query)
+    letzte = KiProtokoll.query.order_by(KiProtokoll.zeit.desc()).limit(15).all()
+    return render_template("lp/ki.html", aktiv=ki_aktiv(), modell=modell(), monat=monat, vormonat=vormonat,
+                           gesamt=gesamt, letzte=letzte, kosten_usd=kosten_usd)
+
+
+def _formulardaten(d):
+    return {"titel": d.get("titel", ""), "text": d.get("text", ""), "loesung": d.get("loesung", ""),
+            "typ": d.get("typ") if d.get("typ") in TYPEN else "frei", "daten": d.get("daten") or {},
+            "punkte": d.get("punkte", ""), "k_stufe": d.get("k_stufe", "")}
+
+
+@bp.route("/ki/<aktion>", methods=["POST"])
+@lp_required
+def ki_aktion(aktion):
+    from . import ki
+    if not ki.ki_aktiv():
+        return jsonify(fehler="Der KI-Assistent ist nicht aktiviert (ANTHROPIC_API_KEY fehlt)."), 503
+    d = request.get_json(force=True) or {}
+    try:
+        if aktion == "entwurf":
+            lz_ids = [int(x) for x in d.get("lernziele", []) if str(x).isdigit()]
+            lernziele = Lernziel.query.filter(Lernziel.id.in_(lz_ids)).all() if lz_ids else []
+            codes = [c for c in d.get("bivo", []) if isinstance(c, str)]
+            leistungsziele = Leistungsziel.query.filter(Leistungsziel.code.in_(codes)).all() if codes else []
+            th_ids = [int(x) for x in d.get("themen", []) if str(x).isdigit()]
+            themen = Thema.query.filter(Thema.id.in_(th_ids)).all() if th_ids else []
+            if not (lernziele or leistungsziele or themen or (d.get("wunsch") or "").strip()):
+                return jsonify(fehler="Bitte zuerst Lernziele, Kompetenzziele oder ein Thema wählen "
+                                      "(rechts unter «Zuordnung») oder einen Wunsch eingeben."), 400
+            q = Aufgabe.query.filter(Aufgabe.aktiv.is_(True))
+            if lz_ids:
+                q = q.filter(Aufgabe.lernziele.any(Lernziel.id.in_(lz_ids)))
+            elif th_ids:
+                q = q.filter(Aufgabe.themen.any(Thema.id.in_(th_ids)))
+            beispiele = q.order_by(db.func.random()).limit(2).all() if (lz_ids or th_ids) else []
+            k = d.get("k_stufe")
+            aufgabe, hinweise = ki.entwurf(lernziele, leistungsziele, themen, d.get("typ"),
+                                           int(k) if str(k).isdigit() else None, d.get("punkte"),
+                                           (d.get("wunsch") or "")[:2000], beispiele)
+            return jsonify(aufgabe=aufgabe, hinweise=hinweise)
+        if aktion == "pruefen":
+            return jsonify(ki.loesung_pruefen(_formulardaten(d)))
+        if aktion == "tags":
+            return jsonify(ki.tags_vorschlagen(
+                _formulardaten(d), Thema.query.order_by(Thema.name).all(),
+                Lernziel.query.join(Thema).order_by(Thema.name, Lernziel.bereich, Lernziel.nummer).all(),
+                Leistungsziel.query.order_by(Leistungsziel.sort).all()))
+        if aktion == "variante":
+            aufgabe, hinweise = ki.variante(_formulardaten(d), d.get("art", "zahlen"))
+            return jsonify(aufgabe=aufgabe, hinweise=hinweise)
+    except ki.KiFehler as e:
+        return jsonify(fehler=str(e)), 502
+    abort(404)

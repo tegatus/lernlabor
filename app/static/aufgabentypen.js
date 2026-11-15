@@ -133,5 +133,12 @@
     letzterTyp = t;
     zeigen();
   }));
+  // Für den KI-Assistenten: Typ und Daten von aussen setzen
+  window.aufgabeTypSetzen = (t, d) => {
+    const r = form.querySelector(`input[name=typ][value="${t}"]`) || form.querySelector('input[name=typ][value=frei]');
+    r.checked = true; letzterTyp = r.value;
+    daten = (d && typeof d === 'object') ? d : {};
+    zeigen();
+  };
   zeigen();
 })();

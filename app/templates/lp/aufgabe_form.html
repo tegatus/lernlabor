@@ -65,6 +65,49 @@
   </div>
 
   <div>
+    {% if ki_aktiv %}
+    <div class="card ki-panel" id="ki-panel" data-url="{{ url_for('lp.ki_aktion', aktion='X') }}"
+         data-neu-url="{{ url_for('lp.aufgabe_bearbeiten') }}" data-aufgabe-id="{{ aufgabe.id if aufgabe else '' }}">
+      <div class="ki-kopf"><strong>🤖 KI-Assistent</strong>
+        <div class="tabs">
+          <button type="button" class="tab aktiv" data-ki="entwurf">Entwurf</button>
+          <button type="button" class="tab" data-ki="pruefen">Prüfen</button>
+          <button type="button" class="tab" data-ki="tags">Zuordnen</button>
+          {% if aufgabe %}<button type="button" class="tab" data-ki="variante">Variante</button>{% endif %}
+        </div></div>
+      <div class="ki-teil" data-ki-teil="entwurf">
+        <p class="muted">Erstellt einen Entwurf zu den unten unter «Zuordnung» gewählten Lernzielen bzw. Themen,
+          im gewählten Aufgabentyp.</p>
+        <textarea id="ki-wunsch" rows="2" placeholder="Wünsche, z. B. «Fehlersuche bei einer Standardkurve, mit Tabelle»"></textarea>
+        <div class="aktionen"><button type="button" class="btn klein" data-ki-start="entwurf">Entwurf erstellen</button></div>
+      </div>
+      <div class="ki-teil" data-ki-teil="pruefen" hidden>
+        <p class="muted">Rechnet nach, prüft Lösung, Eindeutigkeit, Fachlichkeit, Punkte und Sprache.</p>
+        <div class="aktionen"><button type="button" class="btn klein" data-ki-start="pruefen">Aufgabe &amp; Lösung prüfen</button></div>
+      </div>
+      <div class="ki-teil" data-ki-teil="tags" hidden>
+        <p class="muted">Schlägt Thema, Lernziele, BiVo-Kompetenzziele und K-Stufe vor (wird markiert, nichts wird entfernt).</p>
+        <div class="aktionen"><button type="button" class="btn klein" data-ki-start="tags">Zuordnung vorschlagen</button></div>
+      </div>
+      {% if aufgabe %}
+      <div class="ki-teil" data-ki-teil="variante" hidden>
+        <select id="ki-variante">
+          <option value="zahlen">Andere Zahlen / andere Laborsituation</option>
+          <option value="einfacher">Einfacher (K-Stufe tiefer)</option>
+          <option value="schwieriger">Anspruchsvoller (K-Stufe höher)</option>
+          <option value="englisch">Auf Englisch</option>
+          <option value="anderer_typ">Als anderer Aufgabentyp</option>
+        </select>
+        <div class="aktionen"><button type="button" class="btn klein" data-ki-start="variante">Variante erstellen</button></div>
+        <p class="muted">Die Variante öffnet sich als <strong>neue</strong> Aufgabe; das Original bleibt unverändert.</p>
+      </div>
+      {% endif %}
+      <div id="ki-ergebnis" class="ki-ergebnis" hidden></div>
+      <p class="muted ki-datenschutz">KI-Vorschläge immer prüfen. Übermittelt werden nur Aufgabeninhalte, keine Daten von Lernenden.</p>
+    </div>
+    {% else %}
+    <p class="muted ki-aus">🤖 KI-Assistent nicht aktiviert – <a href="{{ url_for('lp.ki_status') }}">so wird er eingeschaltet</a>.</p>
+    {% endif %}
     <details class="hilfe">
       <summary><strong>Formatierung &amp; Tipps</strong></summary>
       Leerzeile = neuer Absatz · <code>- Punkt</code> Aufzählung · <code>a) …</code> Teilaufgabe<br>
@@ -130,8 +173,8 @@
     <h3>Zuordnung</h3>
     <p class="muted">Gewählte Lernziele bringen ihre BiVo-Leistungsziele automatisch mit.</p>
     {{ auswahl(themen, bereiche,
-               aufgabe.themen|map(attribute='id')|list if aufgabe else [],
-               aufgabe.lernziele|map(attribute='id')|list if aufgabe else [],
+               aufgabe.themen|map(attribute='id')|list if aufgabe else vorauswahl.themen,
+               aufgabe.lernziele|map(attribute='id')|list if aufgabe else vorauswahl.lernziele,
                aufgabe.leistungsziele|map(attribute='code')|list if aufgabe else [], zeige_k=false) }}
     <label class="feld">Neues Thema anlegen (optional) <input name="neues_thema" placeholder="z. B. Gelelektrophorese"></label>
   </div>
@@ -151,4 +194,5 @@
 <script src="{{ url_for('static', filename='auswahl.js') }}"></script>
 <script src="{{ url_for('static', filename='aufgabentypen.js') }}"></script>
 <script src="{{ url_for('static', filename='editor.js') }}"></script>
+{% if ki_aktiv %}<script src="{{ url_for('static', filename='ki.js') }}"></script>{% endif %}
 {% endblock %}

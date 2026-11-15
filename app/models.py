@@ -324,6 +324,20 @@ class PruefungAufgabe(db.Model):
     seed = db.Column(db.Integer)
 
 
+class KiProtokoll(db.Model):
+    """Verbrauch des KI-Assistenten (für Transparenz und Kostenkontrolle). Enthält keine Inhalte."""
+    id = db.Column(db.Integer, primary_key=True)
+    zeit = db.Column(db.DateTime, default=now, index=True)
+    lp_id = db.Column(db.Integer, db.ForeignKey("user.id"))
+    lp = db.relationship("User")
+    aktion = db.Column(db.String(20), nullable=False)
+    modell = db.Column(db.String(60))
+    input_tokens = db.Column(db.Integer, default=0)
+    output_tokens = db.Column(db.Integer, default=0)
+    cache_lesen = db.Column(db.Integer, default=0)
+    cache_schreiben = db.Column(db.Integer, default=0)
+
+
 SPALTEN_NACHTRAG = [  # (Tabelle, Spalte, DDL) – für bestehende Datenbanken ohne Migrationswerkzeug
     ("aufgabe", "typ", "VARCHAR(12) NOT NULL DEFAULT 'frei'"),
     ("aufgabe", "daten", "TEXT NOT NULL DEFAULT '{}'"),
