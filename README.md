@@ -25,6 +25,14 @@ online korrigierte Rückmeldung. Lehrpersonen generieren aus derselben Datenbank
   Grösse pro Bild (volle, 2/3, halbe, 1/3, 1/4 Breite) oder pro Stelle (`[[bild:2|halb]]`), optionale Bildunterschrift.
   Bilder mit «nur in der Lösung» erscheinen nur auf Lösungsblättern (z. B. beschriftetes Gel). Nicht platzierte Bilder
   werden am Ende von Aufgabe bzw. Lösung angehängt. Knöpfe im Editor fügen die Marker an der Cursorposition ein.
+- **Aufgabentypen**: freie Aufgabe, **Rechenaufgabe mit variablen Zahlen** (Variablen mit Bereich und Schritt,
+  Ergebnisse per Formel, Platzhalter `{name}` in Text und Lösung – jedes Übungsblatt erhält eigene Zahlen, das
+  Lösungsblatt rechnet mit denselben Werten), **Multiple Choice** (Optionen pro Blatt gemischt), **Zuordnung**
+  (Beschreibungen gemischt, Buchstaben in der Lösung passend) und **Lückentext** (`{{Antwort}}`, optional Wortliste).
+  Prüfungen verwenden pro Aufgabe eine Zahlenvariante für alle.
+- **Komfortabler Editor**: Live-Vorschau von Aufgabenblatt und Lösung, Screenshots per Ctrl+V einfügen oder Bilder
+  hineinziehen, Werkzeugleiste (fett, kursiv, hoch-/tiefgestellt, Listen, Teilaufgaben, Tabelle, Sonderzeichen) und
+  Formel-Assistent für chemische Formeln (H2SO4 → H₂SO₄, SO42- → SO₄²⁻).
 - **Aufgabenverwaltung**: einfache Auszeichnung (fett, Listen, Tabellen, tief-/hochgestellt), Punkte, K-Stufe,
   Antwortfeld, Verwendung (*Übung & Prüfung*, *nur Übung*, *nur Prüfung* – Letztere sehen Lernende nie), PDF-Vorschau,
   Duplizieren als Variante, JSON-Export/-Import zum Austausch zwischen Lehrpersonen (ohne Bilddateien).

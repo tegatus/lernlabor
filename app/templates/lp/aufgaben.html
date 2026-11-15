@@ -23,7 +23,9 @@
   {% for a in aufgaben %}
   <tr style="{{ 'opacity:.5' if not a.aktiv }}">
     <td>{{ a.id }}</td>
-    <td><a href="{{ url_for('lp.aufgabe_bearbeiten', aufgabe_id=a.id) }}">{{ a.titel }}</a></td>
+    <td><a href="{{ url_for('lp.aufgabe_bearbeiten', aufgabe_id=a.id) }}">{{ a.titel }}</a>
+      {% if a.typ and a.typ != 'frei' %}<br><span class="tag">{{ AUFGABENTYPEN[a.typ] }}</span>{% endif %}
+      {% if a.bilder %}<span class="tag" title="Grafiken">🖼 {{ a.bilder|length }}</span>{% endif %}</td>
     <td>{% for t in a.themen %}<span class="tag">{{ t.name }}</span>{% endfor %}</td>
     <td>{% for l in a.lernziele %}<span class="tag" title="{{ l.text }}">{{ l.label }}</span>{% endfor %}
         {% for l in a.leistungsziele %}<span class="code" title="{{ l.text }}">{{ l.code }}</span>{% endfor %}</td>

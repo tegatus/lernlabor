@@ -152,3 +152,10 @@ kbd { font-family: ui-monospace, monospace; font-size: .8em; border: 1px solid v
 .vorschau-inhalt table.mini td, .vorschau-inhalt table.mini th { border-color: #999; }
 figure.platzhalter > div { border: 2px dashed #b0bac5; border-radius: 4px; padding: 1.2rem .5rem; text-align: center; color: #6b7785; font-size: .85rem; }
 .speicherleiste { position: sticky; bottom: 0; background: var(--bg); padding: .6rem 0; border-top: 1px solid var(--linie); z-index: 10; }
+.typ-wahl { display: flex; flex-wrap: wrap; gap: .4rem; }
+.chip:has(input[type=radio]:checked) { background: var(--akzent-hell); border-color: var(--akzent); }
+.typ-panel { padding: .8rem 1rem; }
+.typ-tabelle { margin-bottom: .7rem; }
+.typ-kopf { display: flex; gap: .6rem; align-items: baseline; flex-wrap: wrap; margin-bottom: .3rem; }
+table.kompakt th, table.kompakt td { padding: .2rem .3rem; }
+table.kompakt input:not([type=checkbox]) { width: 100%; }

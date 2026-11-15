@@ -293,3 +293,97 @@ def test_neue_bildnummern_bleiben_bei_gleichzeitigem_loeschen(app):
                                           "bilder_neu": [(_bild("green"), "c.png")]}, content_type="multipart/form-data")
     with app.app_context():
         assert [b.nr for b in db.session.get(Aufgabe, aid).bilder] == [1, 3]
+
+
+# ---------------------------------------------------------------- Aufgabentypen & variable Zahlen
+
+def test_formeln_sicher_und_zahlen_schweizerisch():
+    from app.aufgabentypen import FormelFehler, formel_auswerten, zahl
+    assert formel_auswerten("n * 2 * 10^4", {"n": 54}) == 1080000
+    assert abs(formel_auswerten("10^(1/3,45) - 1", {}) - 0.9492) < 1e-3       # Dezimalkomma erlaubt
+    assert formel_auswerten("log10(1000) + sqrt(16)", {}) == 7
+    for boese in ["__import__('os')", "open('x')", "n.__class__", "(lambda: 1)()", "9**9**9"]:
+        with pytest.raises(FormelFehler):
+            formel_auswerten(boese, {"n": 1})
+    assert zahl(1080000) == "1,08 · 10^{6}" and zahl(4.62962) == "4,63" and zahl(54.0) == "54"
+    assert zahl(0.000123) == "1,23 · 10^{-4}" and zahl(12216.77) == "12200"
+
+
+def test_rechenaufgabe_gleiche_zahlen_in_aufgabe_und_loesung(app):
+    from app.aufgabentypen import rendern
+    with app.app_context():
+        a = Aufgabe.query.filter_by(typ="rechnung").first()
+        g1, g1b, g2 = rendern(a, 11), rendern(a, 11), rendern(a, 12)
+        assert g1.text == g1b.text and g1.loesung == g1b.loesung      # deterministisch pro Seed
+        assert g1.text != g2.text                                       # andere Zahlen bei anderem Seed
+        w = g1.werte
+        assert f"{w['z1']}, {w['z2']}, {w['z3']} und {w['z4']}" in g1.text
+        assert abs(w["c"] - (w["z1"] + w["z2"] + w["z3"] + w["z4"]) / 4 * w["vf"] * 1e4) < 1e-6
+        assert "{" not in g1.text.replace("^{4}", "") and not g1.fehler
+
+
+def test_mc_zuordnung_luecken(app):
+    from app.aufgabentypen import rendern
+    with app.app_context():
+        mc = Aufgabe.query.filter_by(typ="mc").first()
+        for seed in range(1, 6):
+            g = rendern(mc, seed)
+            optionen = [z for z in g.text.splitlines() if z.startswith("☐")]
+            richtig = g.loesung.splitlines()[0].removeprefix("Richtig: ").split(", ")
+            # die als richtig gemeldeten Buchstaben zeigen auf die richtigen Aussagen
+            for b in richtig:
+                text = next(o for o in optionen if o.startswith(f"☐ {b})"))[5:]
+                assert any(opt["korrekt"] and opt["text"] == text for opt in json.loads(mc.daten)["optionen"])
+        zu = rendern(Aufgabe.query.filter_by(typ="zuordnung").first(), 3)
+        assert zu.text.count("\n| ") == 5 and "**" in zu.loesung   # Kopf + 4 Paare
+        lu = rendern(Aufgabe.query.filter_by(typ="luecken").first(), 3)
+        assert "{{" not in lu.text and "(5)" in lu.text and "Wortliste" in lu.text
+        assert "**Denaturierung**" in lu.loesung and "**95 °C / 94 °C**" in lu.loesung
+
+
+def test_uebungsblaetter_mit_variablen_zahlen(app):
+    """Zwei Lernende erhalten dieselbe Rechenaufgabe mit verschiedenen Zahlen; die Lösungen passen dazu."""
+    with app.app_context():
+        a = Aufgabe.query.filter_by(typ="rechnung").first()
+        thema = a.themen[0].id
+        a_id = a.id
+    texte = []
+    for wer in ("lea", "noah"):
+        c = app.test_client()
+        login(c, wer, "lernen-2026")
+        c.post("/lernende/neu", data={"thema": thema, "anzahl": 10})
+        with app.app_context():
+            blatt = Uebungsblatt.query.join(User).filter(User.benutzername == wer).order_by(Uebungsblatt.id.desc()).first()
+            ba = next(x for x in blatt.aufgaben if x.aufgabe_id == a_id)
+            assert ba.seed
+            from app.aufgabentypen import rendern
+            g = rendern(ba.aufgabe, ba.seed)
+            bid = blatt.id
+        lp = app.test_client()
+        login(lp, "lp", "lp-demo-2026")
+        aufg = pdf_text(c.get(f"/blatt/{bid}/aufgaben.pdf").data)
+        loes = pdf_text(lp.get(f"/blatt/{bid}/loesung.pdf").data)
+        from app.aufgabentypen import zahl
+        assert str(g.werte["z1"]) in aufg and zahl(g.werte["m"], 3) in loes
+        texte.append(g.text)
+    assert texte[0] != texte[1]
+
+
+def test_spalten_werden_nachgetragen(tmp_path):
+    """Eine Datenbank aus einer früheren Version (ohne typ/daten/seed) wird beim Start ergänzt."""
+    import sqlite3
+    pfad = tmp_path / "alt.sqlite"
+    konfig = {"SQLALCHEMY_DATABASE_URI": f"sqlite:///{pfad}", "UPLOAD_DIR": str(tmp_path / "d")}
+    app = create_app(konfig)
+    with app.app_context():
+        db.session.add(Aufgabe(titel="alt", text="t", loesung="l", punkte=1))
+        db.session.commit()
+        db.engine.dispose()
+    con = sqlite3.connect(pfad)
+    for tabelle, spalte in [("aufgabe", "typ"), ("aufgabe", "daten"), ("blatt_aufgabe", "seed"), ("pruefung_aufgabe", "seed")]:
+        con.execute(f"ALTER TABLE {tabelle} DROP COLUMN {spalte}")
+    con.commit(); con.close()
+    app = create_app(konfig)
+    with app.app_context():
+        a = Aufgabe.query.one()
+        assert a.typ == "frei" and a.daten == "{}"

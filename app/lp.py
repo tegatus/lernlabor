@@ -5,12 +5,14 @@ import json
 import re
 import secrets
 from collections import Counter
+from types import SimpleNamespace
 
 from flask import (Blueprint, abort, flash, jsonify, redirect, render_template, request, send_file, url_for)
 from flask_login import current_user
 from PIL import Image
 
 from . import importers, pdfgen, storage
+from .aufgabentypen import TYPEN, neuer_seed, pruefen, rendern, zahl
 from .markup import bild_warnungen
 from .auth import lp_required
 from .lernende import auswahl_aus_request, bild_pfad, blatt_pdf_rel
@@ -141,10 +143,11 @@ def lernende_passwort(user_id):
 def korrektur(blatt_id):
     b = db.get_or_404(Uebungsblatt, blatt_id)
     pruefe_lernende(b.lernende)
-    def loesung_html(a):
+    def loesung_html(ba):
         from .markup import angehaengte_bilder, markup_html, sichtbare_bilder
+        a = ba.aufgabe
         url = lambda bild: url_for(".aufgabenbild", bild_id=bild.id)  # noqa: E731
-        return markup_html(a.loesung, sichtbare_bilder(a, "loesung"), url, angehaengte_bilder(a)[1])
+        return markup_html(rendern(a, ba.seed).loesung, sichtbare_bilder(a, "loesung"), url, angehaengte_bilder(a)[1])
 
     return render_template("lp/korrektur.html", blatt=b, loesung_html=loesung_html)
 
@@ -254,6 +257,12 @@ def aufgabe_bearbeiten(aufgabe_id=None):
         a.antwortraum_cm = float(f.get("antwortraum_cm", "5").replace(",", ".") or 0)
         a.verwendung = f.get("verwendung") if f.get("verwendung") in VERWENDUNGEN else "beide"
         a.aktiv = f.get("aktiv") == "1"
+        a.typ = f.get("typ") if f.get("typ") in TYPEN else "frei"
+        try:
+            daten = json.loads(f.get("daten") or "{}")
+        except ValueError:
+            daten = {}
+        a.daten = json.dumps(daten if isinstance(daten, dict) and a.typ != "frei" else {}, ensure_ascii=False)
         a.themen = Thema.query.filter(Thema.id.in_([int(x) for x in f.getlist("thema")])).all()
         neues_thema = f.get("neues_thema", "").strip()
         if neues_thema:
@@ -268,7 +277,7 @@ def aufgabe_bearbeiten(aufgabe_id=None):
         db.session.add(a)
         db.session.commit()
         flash("Aufgabe gespeichert.", "ok")
-        for w in bild_warnungen(a):
+        for w in bild_warnungen(a) + pruefen(a):
             flash(w, "info")
         if f.get("weiter") == "vorschau":
             return redirect(url_for(".aufgabe_bearbeiten", aufgabe_id=a.id, vorschau=1))
@@ -311,8 +320,16 @@ def aufgabe_live_vorschau():
     bilder = {b.nr: b for b in a.bilder} if a else {}
     url = lambda b: url_for(".aufgabenbild", bild_id=b.id)  # noqa: E731
     sichtbar = {nr: b for nr, b in bilder.items() if not b.nur_loesung}
-    return jsonify(aufgabe=str(markup_html(d.get("text", ""), sichtbar, url)),
-                   loesung=str(markup_html(d.get("loesung", ""), bilder, url)))
+    entwurf = SimpleNamespace(typ=d.get("typ") if d.get("typ") in TYPEN else "frei", daten=d.get("daten") or {},
+                              text=d.get("text", ""), loesung=d.get("loesung", ""))
+    g = rendern(entwurf, int(d.get("seed") or 1))
+    hinweis = "; ".join(g.fehler)
+    if entwurf.typ == "rechnung" and g.werte and not g.fehler:
+        hoch = str.maketrans("0123456789-", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻")
+        lesbar = lambda v: re.sub(r"\^\{(-?\d+)\}", lambda m: m[1].translate(hoch), zahl(v, 4))  # noqa: E731
+        hinweis = "Beispielwerte: " + ", ".join(f"{k} = {lesbar(v)}" for k, v in g.werte.items())
+    return jsonify(aufgabe=str(markup_html(g.text, sichtbar, url)), loesung=str(markup_html(g.loesung, bilder, url)),
+                   hinweis=hinweis, fehler=bool(g.fehler))
 
 
 @bp.route("/aufgabenbild/<int:bild_id>")
@@ -336,7 +353,7 @@ def aufgabe_vorschau(aufgabe_id):
 def aufgabe_duplizieren(aufgabe_id):
     a = db.get_or_404(Aufgabe, aufgabe_id)
     kopie = Aufgabe(**{k: getattr(a, k) for k in ("text", "loesung", "punkte", "k_stufe", "schwierigkeit",
-                                                  "antwortformat", "antwortraum_cm", "verwendung")})
+                                                  "antwortformat", "antwortraum_cm", "verwendung", "typ", "daten")})
     kopie.bilder = [AufgabeBild(nr=b.nr, datei=b.datei, groesse=b.groesse, nur_loesung=b.nur_loesung,
                                 beschriftung=b.beschriftung) for b in a.bilder]
     kopie.titel = (a.titel + " (Kopie)")[:200]
@@ -476,7 +493,7 @@ def pruefung_neu():
                      datum=f.get("datum", ""), dauer_min=f.get("dauer_min", type=int),
                      hinweise=f.get("hinweise", ""), parameter=json.dumps(param))
         for i, a in enumerate(res["aufgaben"], 1):
-            p.aufgaben.append(PruefungAufgabe(aufgabe=a, position=i))
+            p.aufgaben.append(PruefungAufgabe(aufgabe=a, position=i, seed=neuer_seed()))
         db.session.add(p)
         db.session.commit()
         if res["nicht_abgedeckt"]:
@@ -522,7 +539,7 @@ def pruefung(pruefung_id):
         elif aktion == "hinzufuegen":
             a = db.session.get(Aufgabe, request.form.get("aufgabe_id", type=int) or 0)
             if a and a.id not in {x.aufgabe_id for x in p.aufgaben}:
-                p.aufgaben.append(PruefungAufgabe(aufgabe=a, position=len(p.aufgaben) + 1))
+                p.aufgaben.append(PruefungAufgabe(aufgabe=a, position=len(p.aufgaben) + 1, seed=neuer_seed()))
         elif aktion == "loeschen":
             db.session.delete(p)
             db.session.commit()

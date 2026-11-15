@@ -5,6 +5,7 @@ Taxonomie:
   Thema (qPCR, Neubauer-Zählkammer, …) → Lernziel (konkret, "Ich kann …")  ↔ Leistungsziele
   Aufgabe ↔ Themen, Leistungsziele, Lernziele
 """
+import json
 from datetime import datetime, timezone
 
 from flask_login import UserMixin
@@ -159,6 +160,8 @@ class Aufgabe(db.Model):
     antwortraum_cm = db.Column(db.Float, default=5.0)
     verwendung = db.Column(db.String(10), default="beide")
     bild = db.Column(db.String(255))  # veraltet (früher: ein Bild pro Aufgabe) – siehe AufgabeBild
+    typ = db.Column(db.String(12), default="frei", nullable=False)   # siehe aufgabentypen.TYPEN
+    daten = db.Column(db.Text, default="{}", nullable=False)         # strukturierte Daten des Typs (JSON)
     aktiv = db.Column(db.Boolean, default=True, nullable=False)
     erstellt_am = db.Column(db.DateTime, default=now)
     geaendert_am = db.Column(db.DateTime, default=now, onupdate=now)
@@ -177,6 +180,7 @@ class Aufgabe(db.Model):
             "titel": self.titel, "text": self.text, "loesung": self.loesung, "punkte": self.punkte,
             "k_stufe": self.k_stufe, "schwierigkeit": self.schwierigkeit, "antwortformat": self.antwortformat,
             "antwortraum_cm": self.antwortraum_cm, "verwendung": self.verwendung,
+            "typ": self.typ or "frei", "daten": json.loads(self.daten or "{}"),
             "themen": [t.name for t in self.themen],
             "leistungsziele": [l.code for l in self.leistungsziele],
             "lernziele": [f"{l.thema.name}|{l.kuerzel}" for l in self.lernziele],
@@ -263,6 +267,7 @@ class BlattAufgabe(db.Model):
     aufgabe_id = db.Column(db.Integer, db.ForeignKey("aufgabe.id"), nullable=False)
     aufgabe = db.relationship("Aufgabe")
     position = db.Column(db.Integer, nullable=False)
+    seed = db.Column(db.Integer)  # Zufallszahlen/Reihenfolge dieser Aufgabe auf diesem Blatt
     punkte_erreicht = db.Column(db.Float)
     kommentar = db.Column(db.Text, default="")
 
@@ -316,3 +321,21 @@ class PruefungAufgabe(db.Model):
     aufgabe_id = db.Column(db.Integer, db.ForeignKey("aufgabe.id"), nullable=False)
     aufgabe = db.relationship("Aufgabe")
     position = db.Column(db.Integer, nullable=False)
+    seed = db.Column(db.Integer)
+
+
+SPALTEN_NACHTRAG = [  # (Tabelle, Spalte, DDL) – für bestehende Datenbanken ohne Migrationswerkzeug
+    ("aufgabe", "typ", "VARCHAR(12) NOT NULL DEFAULT 'frei'"),
+    ("aufgabe", "daten", "TEXT NOT NULL DEFAULT '{}'"),
+    ("blatt_aufgabe", "seed", "INTEGER"),
+    ("pruefung_aufgabe", "seed", "INTEGER"),
+]
+
+
+def spalten_ergaenzen():
+    """Fügt neue Spalten in bestehende Tabellen ein (db.create_all() ergänzt nur fehlende Tabellen)."""
+    insp = db.inspect(db.engine)
+    for tabelle, spalte, ddl in SPALTEN_NACHTRAG:
+        if tabelle in insp.get_table_names() and spalte not in {c["name"] for c in insp.get_columns(tabelle)}:
+            db.session.execute(db.text(f"ALTER TABLE {tabelle} ADD COLUMN {spalte} {ddl}"))
+    db.session.commit()

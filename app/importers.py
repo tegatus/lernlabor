@@ -1,5 +1,6 @@
 """Importfunktionen: Kompetenzen der BiVo (Excel), konkrete Lernziele (Text/PDF), Aufgaben (JSON)."""
 import io
+import json
 import re
 
 import openpyxl
@@ -152,6 +153,8 @@ def aufgabe_aus_dict(d, aufgabe=None):
                  "antwortraum_cm", "verwendung"):
         if feld in d:
             setattr(a, feld, d[feld])
+    a.typ = d.get("typ") or "frei"
+    a.daten = json.dumps(d.get("daten") or {}, ensure_ascii=False)
     themen = []
     for name in d.get("themen", []):
         t = Thema.query.filter_by(name=name).first()

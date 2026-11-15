@@ -5,6 +5,7 @@ from flask import (Blueprint, abort, current_app, flash, jsonify, redirect, rend
 from flask_login import current_user, login_required
 
 from . import pdfgen, storage
+from .aufgabentypen import neuer_seed
 from .auth import lernende_required
 from .models import (Abgabe, AbgabeSeite, BlattAufgabe, Bereich, Thema, Uebungsblatt, db)
 from .selection import auswahl_beschreiben, filter_aufgaben, waehle_uebungsaufgaben
@@ -64,7 +65,7 @@ def neu():
             ", ".join(t.name for t in Thema.query.filter(Thema.id.in_(themen))) if themen else "Kompetenzen")
         blatt = Uebungsblatt(lernende=current_user, titel=titel[:200], auswahl=beschreibung)
         for i, a in enumerate(aufgaben, 1):
-            blatt.aufgaben.append(BlattAufgabe(aufgabe=a, position=i))
+            blatt.aufgaben.append(BlattAufgabe(aufgabe=a, position=i, seed=neuer_seed()))
         db.session.add(blatt)
         db.session.commit()
         erzeuge_blatt_pdfs(blatt)

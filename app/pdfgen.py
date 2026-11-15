@@ -25,6 +25,7 @@ from reportlab.pdfgen import canvas as rl_canvas
 from reportlab.platypus import (CondPageBreak, Flowable, Image, KeepTogether, PageBreak, Paragraph,
                                 SimpleDocTemplate, Spacer, Table, TableStyle)
 
+from .aufgabentypen import rendern
 from .markup import RE_BILD, angehaengte_bilder, sichtbare_bilder, tabellen_abtrennen
 
 FONT_DIR = os.path.join(os.path.dirname(__file__), "static", "fonts")
@@ -137,7 +138,7 @@ def markup_flowables(text, st, width=CONTENT_W, bilder=None, bild_pfad=None):
             if re.match(r"^[-•]\s+", s):
                 flush()
                 out.append(Paragraph(inline(re.sub(r"^[-•]\s+", "", s)), st["liste"], bulletText="•"))
-            elif re.match(r"^(\d+|[a-z])\)\s+", s):
+            elif re.match(r"^(\d+|[a-z])\)\s+", s) or s[:1] in "☐☑":
                 flush()
                 out.append(Paragraph(inline(s), st["teil"]))
             elif s.startswith("|"):
@@ -159,7 +160,11 @@ def _tabelle(lines, st, width):
     ncol = max(len(r) for r in rows)
     data = [[Paragraph(inline(z), st["zelle_b"] if i == 0 else st["zelle"]) for z in r + [""] * (ncol - len(r))]
             for i, r in enumerate(rows)]
-    t = Table(data, colWidths=[min(width / ncol, 4.5 * cm)] * ncol, hAlign="LEFT")
+    # Spaltenbreite nach Inhalt (längster Eintrag, begrenzt), damit lange Beschreibungen Platz bekommen
+    gewichte = [min(max([len(re.sub(r"[*_^{}]", "", r[i])) if i < len(r) else 0 for r in rows] + [2]), 45) + 2
+                for i in range(ncol)]
+    gesamt = min(width, sum(g * 0.21 * cm for g in gewichte))
+    t = Table(data, colWidths=[gesamt * g / sum(gewichte) for g in gewichte], hAlign="LEFT")
     t.setStyle(TableStyle([
         ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#999999")),
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#eeeeee")),
@@ -375,11 +380,13 @@ def _aufgaben_kopf(st, nr, aufgabe, zusatz_meta=True):
     return out
 
 
-def _aufgaben_story(st, aufgaben, bild_pfad, mit_meta=True):
+def _aufgaben_story(st, eintraege, bild_pfad, mit_meta=True):
+    """eintraege: [(Aufgabe, seed)] – der Seed bestimmt Zufallszahlen und Reihenfolgen (siehe aufgabentypen)."""
     story = []
-    for nr, a in enumerate(aufgaben, 1):
+    for nr, (a, seed) in enumerate(eintraege, 1):
+        g = rendern(a, seed)
         teile = _aufgaben_kopf(st, nr, a, mit_meta)
-        teile += markup_flowables(a.text, st, CONTENT_W, sichtbare_bilder(a, "aufgabe"), bild_pfad)
+        teile += markup_flowables(g.text, st, CONTENT_W, sichtbare_bilder(a, "aufgabe"), bild_pfad)
         teile += _angehaengt(angehaengte_bilder(a)[0], st, CONTENT_W, bild_pfad)
         if a.antwortformat != "keins" and a.antwortraum_cm:
             teile += [Spacer(1, 6), Antwortfeld(a.antwortraum_cm, a.antwortformat)]
@@ -389,15 +396,16 @@ def _aufgaben_story(st, aufgaben, bild_pfad, mit_meta=True):
     return story
 
 
-def _loesungs_story(st, aufgaben, bild_pfad):
+def _loesungs_story(st, eintraege, bild_pfad):
     story = []
-    for nr, a in enumerate(aufgaben, 1):
+    for nr, (a, seed) in enumerate(eintraege, 1):
+        g = rendern(a, seed)
         teile = _aufgaben_kopf(st, nr, a, True)
-        teile += markup_flowables(a.text, st, CONTENT_W, sichtbare_bilder(a, "aufgabe"), bild_pfad)
+        teile += markup_flowables(g.text, st, CONTENT_W, sichtbare_bilder(a, "aufgabe"), bild_pfad)
         fuer_aufgabe, fuer_loesung = angehaengte_bilder(a)
         teile += _angehaengt(fuer_aufgabe, st, CONTENT_W, bild_pfad)
         lw = CONTENT_W - 0.6 * cm
-        loes = markup_flowables(a.loesung or "(keine Musterlösung hinterlegt)", st, lw,
+        loes = markup_flowables(g.loesung or "(keine Musterlösung hinterlegt)", st, lw,
                                 sichtbare_bilder(a, "loesung"), bild_pfad)
         loes += _angehaengt(fuer_loesung, st, lw, bild_pfad)
         while loes and isinstance(loes[-1], Spacer):  # kein leeres Box-Ende auf einer neuen Seite
@@ -420,7 +428,7 @@ APP_NAME = "LernLabor · Laborant/in EFZ Biologie"
 def uebungsblatt_pdf(blatt, bild_pfad, loesung=False):
     st = _styles()
     buf = io.BytesIO()
-    aufgaben = [ba.aufgabe for ba in blatt.aufgaben]
+    aufgaben = [(ba.aufgabe, ba.seed) for ba in blatt.aufgaben]
     titel = ("Lösungen: " if loesung else "") + blatt.titel
     doc = _doc(buf, titel)
     lern = blatt.lernende
@@ -444,7 +452,7 @@ def uebungsblatt_pdf(blatt, bild_pfad, loesung=False):
 def pruefung_pdf(pruefung, bild_pfad, loesung=False):
     st = _styles()
     buf = io.BytesIO()
-    aufgaben = [pa.aufgabe for pa in pruefung.aufgaben]
+    aufgaben = [(pa.aufgabe, pa.seed) for pa in pruefung.aufgaben]
     titel = ("Lösungen: " if loesung else "") + pruefung.titel
     doc = _doc(buf, titel)
     felder = [("Name", ""), ("Klasse", pruefung.klasse.name if pruefung.klasse else ""),
@@ -462,13 +470,13 @@ def pruefung_pdf(pruefung, bild_pfad, loesung=False):
     return buf.getvalue()
 
 
-def aufgabe_vorschau_pdf(aufgabe, bild_pfad):
+def aufgabe_vorschau_pdf(aufgabe, bild_pfad, seed=1):
     st = _styles()
     buf = io.BytesIO()
     doc = _doc(buf, aufgabe.titel)
     story = [Paragraph("Vorschau Aufgabe", st["titel"]), Spacer(1, 8)]
-    story += _aufgaben_story(st, [aufgabe], bild_pfad)
-    story += [PageBreak()] + _loesungs_story(st, [aufgabe], bild_pfad)
+    story += _aufgaben_story(st, [(aufgabe, seed)], bild_pfad)
+    story += [PageBreak()] + _loesungs_story(st, [(aufgabe, seed)], bild_pfad)
     doc.build(story, canvasmaker=_seitenrahmen_factory(APP_NAME, f"Aufgabe #{aufgabe.id}"))
     return buf.getvalue()
 

@@ -35,7 +35,16 @@
 <div class="zweispaltig editor">
   <div>
     <label class="feld">Titel <input name="titel" value="{{ aufgabe.titel if aufgabe }}" required maxlength="200"></label>
-    {# Aufgabentyp-Bereich (Abschnitt 3) #}
+    <div class="feld"><span>Aufgabentyp</span>
+      <div class="typ-wahl">
+        {% set aktueller_typ = aufgabe.typ if aufgabe and aufgabe.typ else 'frei' %}
+        {% for k, label in AUFGABENTYPEN.items() %}
+          <label class="chip"><input type="radio" name="typ" value="{{ k }}" {{ 'checked' if k == aktueller_typ }}> {{ label }}</label>
+        {% endfor %}
+      </div>
+    </div>
+    <input type="hidden" name="daten" id="typ-daten" value="{{ aufgabe.daten if aufgabe else '{}' }}">
+    <div class="card typ-panel" id="typ-panel" hidden></div>
     <div class="feld"><span>Aufgabentext</span>
       {{ werkzeugleiste('text') }}
       <textarea name="text" rows="12" required class="ablage">{{ aufgabe.text if aufgabe }}</textarea></div>
@@ -140,5 +149,6 @@
 {% endblock %}
 {% block scripts %}
 <script src="{{ url_for('static', filename='auswahl.js') }}"></script>
+<script src="{{ url_for('static', filename='aufgabentypen.js') }}"></script>
 <script src="{{ url_for('static', filename='editor.js') }}"></script>
 {% endblock %}
