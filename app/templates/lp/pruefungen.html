@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Prüfungen{% endblock %}
+{% block content %}
+<div class="aktionen" style="justify-content: space-between">
+  <h1>Prüfungen</h1>
+  <a class="btn" href="{{ url_for('lp.pruefung_neu') }}">+ Prüfung generieren</a>
+</div>
+<table class="tab">
+  <tr><th>Titel</th><th>Klasse</th><th>Datum</th><th>Aufgaben</th><th>Punkte</th><th>PDF</th></tr>
+  {% for p in pruefungen %}
+  <tr><td><a href="{{ url_for('lp.pruefung', pruefung_id=p.id) }}">{{ p.titel }}</a></td><td>{{ p.klasse.name if p.klasse }}</td>
+      <td>{{ p.datum }}</td><td>{{ p.aufgaben|length }}</td><td>{{ p.max_punkte|pkt }}</td>
+      <td><a href="{{ url_for('lp.pruefung_pdf', pruefung_id=p.id, art='pruefung') }}" target="_blank">Prüfung</a> ·
+          <a href="{{ url_for('lp.pruefung_pdf', pruefung_id=p.id, art='loesung') }}" target="_blank">Lösung</a></td></tr>
+  {% else %}<tr><td colspan="6" class="muted">Noch keine Prüfungen.</td></tr>{% endfor %}
+</table>
+{% endblock %}

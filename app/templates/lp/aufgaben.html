@@ -1,0 +1,41 @@
+{% extends "base.html" %}{% from "_macros.html" import csrf %}
+{% block title %}Aufgaben{% endblock %}
+{% block content %}
+<div class="aktionen" style="justify-content: space-between">
+  <h1>Aufgabendatenbank</h1>
+  <div class="aktionen">
+    <a class="btn" href="{{ url_for('lp.aufgabe_bearbeiten') }}">+ Neue Aufgabe</a>
+    <a class="btn sek" href="{{ url_for('lp.aufgaben_export') }}">Export (JSON)</a>
+  </div>
+</div>
+<form class="aktionen card" method="get">
+  <input name="q" value="{{ request.args.get('q', '') }}" placeholder="Suche in Titel/Text">
+  <select name="thema"><option value="">Alle Themen</option>
+    {% for t in themen %}<option value="{{ t.id }}" {{ 'selected' if request.args.get('thema') == t.id|string }}>{{ t.name }}</option>{% endfor %}</select>
+  <select name="verwendung"><option value="">Jede Verwendung</option>
+    {% for k, v in VERWENDUNGEN.items() %}<option value="{{ k }}" {{ 'selected' if request.args.get('verwendung') == k }}>{{ v }}</option>{% endfor %}</select>
+  <label><input type="checkbox" name="inaktiv" value="1" {{ 'checked' if request.args.get('inaktiv') }}> inkl. inaktive</label>
+  <button class="btn klein">Filtern</button>
+</form>
+<p class="muted">{{ aufgaben|length }} Aufgaben</p>
+<table class="tab">
+  <tr><th>#</th><th>Titel</th><th>Themen</th><th>Lernziele / BiVo</th><th>K</th><th>P.</th><th>Verwendung</th><th></th></tr>
+  {% for a in aufgaben %}
+  <tr style="{{ 'opacity:.5' if not a.aktiv }}">
+    <td>{{ a.id }}</td>
+    <td><a href="{{ url_for('lp.aufgabe_bearbeiten', aufgabe_id=a.id) }}">{{ a.titel }}</a></td>
+    <td>{% for t in a.themen %}<span class="tag">{{ t.name }}</span>{% endfor %}</td>
+    <td>{% for l in a.lernziele %}<span class="tag" title="{{ l.text }}">{{ l.label }}</span>{% endfor %}
+        {% for l in a.leistungsziele %}<span class="code" title="{{ l.text }}">{{ l.code }}</span>{% endfor %}</td>
+    <td>{{ 'K%d'|format(a.k_stufe) if a.k_stufe }}</td>
+    <td>{{ a.punkte|pkt }}</td>
+    <td><span class="badge v-{{ a.verwendung }}">{{ VERWENDUNGEN[a.verwendung] }}</span></td>
+    <td><a href="{{ url_for('lp.aufgabe_vorschau', aufgabe_id=a.id) }}" target="_blank">PDF</a></td>
+  </tr>
+  {% endfor %}
+</table>
+<form method="post" action="{{ url_for('lp.aufgaben_import') }}" enctype="multipart/form-data" class="card" style="margin-top:1rem">{{ csrf() }}
+  <strong>Aufgaben importieren</strong> (JSON im Format des Exports – z. B. um Aufgaben zwischen Lehrpersonen auszutauschen)
+  <div class="aktionen"><input type="file" name="datei" accept=".json,application/json" required><button class="btn klein">Importieren</button></div>
+</form>
+{% endblock %}

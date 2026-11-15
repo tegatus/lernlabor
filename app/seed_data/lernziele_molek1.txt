@@ -1,0 +1,137 @@
+Abschnitt 1: Bereiche a
+
+a – Planen und Vorbereiten von Versuchen und Arbeitsabläufen
+
+qPCR
+
+   1. Ich kann die Zielsetzung eines qPCR-Auftrags (z. B. Nachweis eines Erregers, relative
+      Genexpression, Bestimmung der Kopienzahl) in eigenen Worten erklären. (a.1.1, K2)
+
+   2. Ich kann das Prinzip der DNA-Replikation und der PCR (Denaturierung, Annealing,
+      Elongation) beschreiben und erklären, wie Inhibitoren in der Probe (z. B. Heparin,
+      Phenol, Ethanol, Hämoglobin) die Amplifikation stören und das Resultat verfälschen.
+      (a.1.2, K4)
+
+   3. Ich kann die Arbeitsschritte eines qPCR-Protokolls auf Deutsch und auf Englisch
+      erläutern, mit meiner Versuchsplanung vergleichen und auf Vollständigkeit überprüfen
+      (z. B. Kontrollen, Replikate, Standardreihe). (a.1.4, K4)
+
+   4. Ich kann die Durchführung einer qPCR auf Deutsch und auf Englisch besprechen und
+      dabei die Fachbegriffe (Ct-Wert, Threshold, Baseline, NTC, Melt Curve) korrekt
+      verwenden. (a.1.5, K4)
+
+   5. Ich kann in anerkannten Informationsquellen (z. B. Herstellerhandbücher, MIQE-
+      Richtlinien, NCBI) relevante Informationen zu Primern, Sonden und
+      Reaktionsbedingungen finden und auswählen. (a.1.6, K4)
+
+   6. Ich kann einen qPCR-Arbeitsauftrag strukturieren und daraus ein Pipettierschema und
+      einen Plattenplan ableiten. (a.1.9, K4)
+
+   7. Ich kann verschiedene Nachweismethoden vergleichen (PCR, qPCR mit SYBR Green,
+      qPCR mit Hydrolyse-Sonden/TaqMan, RT-qPCR) und ihre Einsatzmöglichkeiten
+      aufzeigen. (a.2.1, K4)
+
+   8. Ich kann die gesetzlichen und ethischen Aspekte bei der Arbeit mit humanen Proben und
+      genetischen Daten (z. B. Datenschutz, Einwilligung) aufzeigen. (a.2.2, K3)
+
+   9. Ich kann für eine qPCR einen Master-Mix für n Reaktionen inkl. Überschuss sowie eine
+      Verdünnungsreihe für die Standardkurve berechnen. (a.2.3, K3)
+
+   10. Ich kann den geplanten qPCR-Ablauf auf Deutsch und auf Englisch beschreiben. (a.2.4,
+       K2)
+
+   11. Ich kann eine qPCR-Planung in Bezug auf Zielsetzung und Durchführung auf
+       Vollständigkeit überprüfen (Positiv-, Negativ- und NTC-Kontrollen, Referenzgene,
+       technische Replikate). (a.2.5, K3)
+
+   12. Ich kann die Verlässlichkeit von Primer-Sequenzen und Protokollen aus verschiedenen
+       Quellen (Publikation, Forum, Herstellerangabe) beurteilen. (a.2.6, K4)
+
+   13. Ich kann die ökonomischen und ökologischen Aspekte bei der Beschaffung von qPCR-
+       Reagenzien und Verbrauchsmaterial (Kits, Platten, Filterspitzen) erläutern. (a.3.1, K2)
+
+   14. Ich kann die räumliche Trennung der Arbeitsbereiche (Pre-PCR / Post-PCR) und die
+       Massnahmen zur Vermeidung von Kontaminationen begründen. (a.4.1, a.4.2, K2)
+
+
+
+
+                                                                                              S. 1
+   15. Ich kann die Arbeitsschritte einer qPCR-SOP auf Deutsch und auf Englisch erläutern.
+       (a.4.4, K2)
+
+
+
+Abschnitt 2: Bereich b – Durchführen von Versuchen und Arbeitsabläufen im Labor
+
+qPCR
+
+   1. Ich kann die Schutzmassnahmen im Umgang mit Probenmaterial und Reagenzien (z. B.
+      DNA-Farbstoffe wie SYBR Green) begründen und mögliche Folgen für Mensch und
+      Umwelt im Ereignisfall erläutern. (b.1.1, K4)
+
+   2. Ich kann die Eigenschaften von PCR-Verbrauchsmaterialien (z. B. optische Platten und
+      Folien, Low-Binding-Gefässe, Filterspitzen) beschreiben und ihre Verwendung
+      begründen. (b.1.2, K2)
+
+   3. Ich kann die Berechnungen für die Herstellung von Master-Mix, Primer-Arbeitslösungen
+      und einer Standard-Verdünnungsreihe selbständig durchführen. (b.1.3, K3)
+
+   4. Ich kann die Eigenschaften der qPCR-Komponenten (Polymerase, dNTPs, MgCl₂, Primer,
+      Sonden, Fluoreszenzfarbstoffe) und ihre Funktion in der Reaktion beschreiben. (b.1.5,
+      K2)
+
+   5. Ich kann mögliche Gefahren bei der qPCR benennen und geeignete Massnahmen
+      ableiten. (b.1.6, K2)
+
+   6. Ich kann Messdaten (Konzentrationen, Reinheit A260/A280, Ct-Werte) erfassen,
+      strukturieren und geeignet darstellen. (b.1.7, K3)
+
+   7. Ich kann geeignete Massnahmen zum Schutz von Proben- und Messdaten anwenden.
+      (b.1.8, K3)
+
+   8. Ich kann die Lageranforderungen für Primer, Sonden, Enzyme und Nukleinsäureproben
+      (Temperatur, Lichtschutz, Aliquotieren, Einfrier-Auftau-Zyklen) erläutern. (b.1.9, K2)
+
+   9. Ich kann die korrekte Probenahme und -lagerung (z. B. RNA-Stabilisierung) erläutern und
+      ihre Bedeutung für das qPCR-Resultat begründen. (b.2.1, K2)
+
+   10. Ich kann die qPCR mit anderen biologischen Methoden zur Identitätsbestimmung (z. B.
+       Kultur, ELISA, Sequenzierung) vergleichen und die passende Methode bestimmen.
+       (b.2.2, K4)
+
+   11. Ich kann die Massnahmen zu Arbeitshygiene, Biosicherheit und Gesundheits- und
+       Umweltschutz bei der Arbeit mit infektiösem Probenmaterial begründen. (b.2.4, K2)
+
+   12. Ich kann die gesetzlichen Vorgaben (z. B. Einschliessungsverordnung) im Umgang mit
+       Organismen erläutern und daraus Konsequenzen für Arbeit und Entsorgung ableiten.
+       (b.2.5, K4)
+
+   13. Ich kann den Nutzen von Qualitätsmanagementsystemen (z. B. MIQE, GLP, ISO 17025)
+       für die Verlässlichkeit und Reproduzierbarkeit von qPCR-Resultaten erklären. (b.2.7, K2)
+
+   14. Ich kann verschiedene Qualitätsmanagementsysteme bezüglich ihrer Bedeutung für das
+       qPCR-Labor unterscheiden. (b.2.8, K3)
+
+
+
+                                                                                             S. 2
+15. Ich kann während und nach dem Lauf Amplifikationskurven und Kontrollen mit
+    Referenzwerten vergleichen, Abweichungen erkennen und Massnahmen ableiten. (b.5.1,
+    K4)
+
+16. Ich kann die Grundlagen der systematischen Problemlösung beschreiben und auf
+    typische qPCR-Probleme anwenden (keine Amplifikation, späte Ct-Werte, Primer-
+    Dimere). (b.5.3, b.5.4, K3)
+
+17. Ich kann Abweichungen vom Protokoll auf Deutsch und auf Englisch kommunizieren.
+    (b.5.5, K3)
+
+18. Ich kann Methoden zur Fehlererkennung (Replikate, NTC, Schmelzkurvenanalyse,
+    interne Kontrollen) anwenden und die Qualität der Messwerte beurteilen. (b.5.6, K3)
+
+
+
+
+                                                                                          S. 3
+

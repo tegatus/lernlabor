@@ -1,0 +1,179 @@
+[
+  {
+    "titel": "Master-Mix für eine qPCR-Platte",
+    "themen": ["qPCR"],
+    "lernziele": ["qPCR|a9", "qPCR|b3"],
+    "leistungsziele": ["a.2.3", "b.1.3"],
+    "k_stufe": 3, "punkte": 6, "schwierigkeit": 2,
+    "antwortformat": "karo", "antwortraum_cm": 8, "verwendung": "beide",
+    "text": "Du sollst eine SYBR-Green-qPCR ansetzen. Pro Reaktion (Endvolumen 20 µL) werden eingesetzt:\n\n- 2× SYBR Green Master Mix\n- Forward- und Reverse-Primer, Stammlösungen je 10 µM, Endkonzentration je 0,4 µM\n- 2 µL Template (wird separat pipettiert)\n- Nuklease-freies Wasser\n\nAuf der Platte: 8 Proben in Triplikaten, eine Standardreihe mit 5 Punkten in Duplikaten und eine NTC in Triplikaten.\n\na) Berechne die Anzahl Reaktionen inkl. 10 % Überschuss.\nb) Berechne die Volumina aller Komponenten pro Reaktion und für den gesamten Master-Mix (ohne Template).",
+    "loesung": "a) 8 × 3 + 5 × 2 + 3 = **37 Reaktionen**; mit 10 % Überschuss: 37 × 1,1 = **40,7 Reaktionen** (sinnvoll aufrunden auf 41 ist ebenfalls korrekt).\n\nb)\n| Komponente | pro Reaktion | Master-Mix (40,7×) |\n| 2× SYBR Green Mix | 10 µL | 407 µL |\n| Primer fw 10 µM | 0,8 µL | 32,6 µL |\n| Primer rev 10 µM | 0,8 µL | 32,6 µL |\n| Wasser | 6,4 µL | 260,5 µL |\n| Summe Master-Mix | 18 µL | 732,6 µL |\n\nPrimer: c₁·V₁ = c₂·V₂ → V₁ = 0,4 µM · 20 µL / 10 µM = 0,8 µL. Pro Well 18 µL Master-Mix + 2 µL Template.\n\nBewertung: a) 1 P., Primer-Volumen 1 P., Wasser 1 P., Hochrechnung 3 P."
+  },
+  {
+    "titel": "Verdünnungsreihe für die Standardkurve",
+    "themen": ["qPCR"],
+    "lernziele": ["qPCR|a9", "qPCR|b3"],
+    "leistungsziele": ["a.2.3", "b.1.3"],
+    "k_stufe": 3, "punkte": 5, "schwierigkeit": 2,
+    "antwortformat": "karo", "antwortraum_cm": 7, "verwendung": "beide",
+    "text": "Ein Plasmid-Standard liegt mit 1 · 10^{9} Kopien/µL vor. Für die Standardkurve brauchst du fünf Standards mit 10^{6}, 10^{5}, 10^{4}, 10^{3} und 10^{2} Kopien/µL, je 50 µL.\n\nBeschreibe eine geeignete serielle Verdünnung (Volumen Standard + Volumen Verdünnungspuffer pro Schritt). Pipettiere dabei kein Volumen unter 2 µL.",
+    "loesung": "Der erste Schritt 10^{9} → 10^{6} (1:1000) wird aufgeteilt:\n\n- Zwischenverdünnung 1:100: 2 µL Standard + 198 µL Puffer → 10^{7} Kopien/µL\n- 1:10: 5 µL 10^{7} + 45 µL Puffer → **10^{6}**\n- 1:10: 5 µL 10^{6} + 45 µL → **10^{5}**\n- 1:10: 5 µL 10^{5} + 45 µL → **10^{4}**\n- 1:10: 5 µL 10^{4} + 45 µL → **10^{3}**\n- 1:10: 5 µL 10^{3} + 45 µL → **10^{2}**\n\n(Andere Volumina mit Faktor 10 sind korrekt, z. B. 10 µL + 90 µL, sofern ≥ 50 µL übrig bleiben.) Nach jedem Schritt gut mischen, frische Spitze verwenden."
+  },
+  {
+    "titel": "Fachbegriffe der qPCR (Deutsch/Englisch)",
+    "themen": ["qPCR"],
+    "lernziele": ["qPCR|a4"],
+    "k_stufe": 2, "punkte": 5, "schwierigkeit": 1,
+    "antwortformat": "linien", "antwortraum_cm": 9, "verwendung": "beide",
+    "text": "Erkläre die folgenden Begriffe in je einem Satz. Gib bei Begriff 4 und 5 auch die englische Bezeichnung an.\n\n1) Ct-Wert\n2) Threshold\n3) Baseline\n4) Negativkontrolle ohne Template\n5) Schmelzkurve",
+    "loesung": "1) **Ct-Wert** (cycle threshold): Zyklus, bei dem die Fluoreszenz der Probe den Threshold überschreitet; je mehr Ausgangsmenge, desto kleiner der Ct.\n2) **Threshold**: Fluoreszenz-Schwellenwert in der exponentiellen Phase, deutlich über dem Hintergrund.\n3) **Baseline**: Hintergrundfluoreszenz der ersten Zyklen (z. B. Zyklen 3–15), die von allen Kurven abgezogen wird.\n4) **NTC – No Template Control**: Reaktion mit Wasser statt Template, zeigt Kontaminationen bzw. Primer-Dimere.\n5) **Melt Curve**: Langsames Erhitzen nach dem Lauf; die Schmelztemperatur zeigt, ob ein spezifisches Produkt (ein Peak) oder Nebenprodukte entstanden sind.\n\nJe 1 P."
+  },
+  {
+    "titel": "Ablauf eines PCR-Zyklus und Inhibitoren",
+    "themen": ["qPCR"],
+    "lernziele": ["qPCR|a2"],
+    "k_stufe": 4, "punkte": 6, "schwierigkeit": 2,
+    "antwortformat": "linien", "antwortraum_cm": 10, "verwendung": "beide",
+    "text": "a) Beschreibe die drei Schritte eines PCR-Zyklus mit typischer Temperatur und dem, was dabei molekular passiert.\n\nb) Eine aus Vollblut isolierte DNA liefert in der qPCR einen viel späteren Ct-Wert als erwartet. Nenne zwei mögliche Inhibitoren aus der Probe und erkläre, wie sie das Resultat verfälschen.",
+    "loesung": "a)\n- **Denaturierung** (ca. 95 °C): Doppelstrang trennt sich in Einzelstränge (H-Brücken brechen).\n- **Annealing** (ca. 55–65 °C, primerabhängig): Primer lagern sich komplementär an die Zielsequenz an.\n- **Elongation** (ca. 72 °C bzw. 60 °C bei 2-Schritt-Protokoll): Polymerase verlängert die Primer in 5'→3'-Richtung mit dNTPs.\n(je 1 P.)\n\nb) z. B. **Hämoglobin/Häm** (hemmt die Polymerase), **Heparin** (bindet an Polymerase/DNA), **Ethanol** oder **Phenol** aus der Extraktion (denaturieren das Enzym). Folge: geringere Effizienz → späterer Ct → Menge wird **unterschätzt**, im Extremfall falsch-negatives Resultat. (3 P.)"
+  },
+  {
+    "titel": "Effizienz aus der Standardkurve und Quantifizierung",
+    "themen": ["qPCR"],
+    "lernziele": ["qPCR|b15", "qPCR|b18"],
+    "leistungsziele": ["e.1.4"],
+    "k_stufe": 4, "punkte": 6, "schwierigkeit": 3,
+    "antwortformat": "karo", "antwortraum_cm": 9, "verwendung": "pruefung",
+    "text": "Die Auswertung der Standardkurve liefert: Ct = −3,45 · log(N) + 38,2 mit R² = 0,998 (N = Kopien pro Reaktion).\n\na) Berechne die Effizienz E der Reaktion in % (E = 10^{−1/Steigung} − 1).\nb) Beurteile die Qualität der Standardkurve anhand von E und R².\nc) Eine Probe hat einen mittleren Ct von 24,1. Berechne die Anzahl Kopien in der Reaktion.",
+    "loesung": "a) E = 10^{1/3,45} − 1 = 1,949 − 1 = **0,949 ≈ 95 %** (2 P.)\n\nb) Akzeptanzbereich typischerweise 90–110 % und R² ≥ 0,98 → beides erfüllt, die Standardkurve ist **brauchbar**. (2 P.)\n\nc) log(N) = (38,2 − 24,1) / 3,45 = 4,087 → N = 10^{4,087} ≈ **1,2 · 10^{4} Kopien** (2 P.)"
+  },
+  {
+    "titel": "Relative Genexpression mit ΔΔCt",
+    "themen": ["qPCR"],
+    "lernziele": ["qPCR|a1", "qPCR|b6"],
+    "leistungsziele": ["e.1.4", "e.2.2"],
+    "k_stufe": 3, "punkte": 5, "schwierigkeit": 2,
+    "antwortformat": "karo", "antwortraum_cm": 8, "verwendung": "beide",
+    "text": "Zellen wurden mit einem Wirkstoff behandelt. Die mittleren Ct-Werte (Effizienz beider Assays ≈ 100 %):\n\n| Probe | Zielgen | Referenzgen (GAPDH) |\n| Kontrolle | 26,0 | 18,0 |\n| Behandelt | 23,5 | 18,2 |\n\nBerechne ΔCt, ΔΔCt und die x-fache Änderung der Expression (2^{−ΔΔCt}) und formuliere das Resultat in einem Satz.",
+    "loesung": "ΔCt Kontrolle = 26,0 − 18,0 = 8,0; ΔCt behandelt = 23,5 − 18,2 = 5,3 (2 P.)\n\nΔΔCt = 5,3 − 8,0 = **−2,7** (1 P.)\n\n2^{2,7} ≈ **6,5** (1 P.)\n\nDas Zielgen ist in den behandelten Zellen etwa **6,5-fach höher exprimiert** als in der Kontrolle (normiert auf GAPDH). (1 P.)"
+  },
+  {
+    "titel": "Signal in der NTC – Fehlersuche",
+    "themen": ["qPCR"],
+    "lernziele": ["qPCR|b16", "qPCR|b18", "qPCR|b15"],
+    "k_stufe": 4, "punkte": 5, "schwierigkeit": 3,
+    "antwortformat": "linien", "antwortraum_cm": 9, "verwendung": "beide",
+    "text": "In deinem SYBR-Green-Lauf zeigen alle drei NTC-Wells eine Amplifikation mit Ct ≈ 33. Die Proben haben Ct-Werte zwischen 21 und 25. In der Schmelzkurve haben die Proben einen Peak bei 84 °C, die NTCs einen Peak bei 75 °C.\n\na) Was ist die wahrscheinlichste Ursache für das Signal in der NTC? Begründe mit der Schmelzkurve.\nb) Wie beurteilst du die Probenresultate?\nc) Schlage zwei Massnahmen vor, um das Problem beim nächsten Lauf zu vermeiden.",
+    "loesung": "a) **Primer-Dimere**: Das Produkt in der NTC schmilzt bei tieferer Temperatur (75 °C) als das spezifische Produkt (84 °C) → kurzes, unspezifisches Produkt, keine Kontamination mit Ziel-DNA. (2 P.)\n\nb) Die Proben liegen ≥ 8 Zyklen vor der NTC und zeigen nur den spezifischen Peak → Resultate sind **verwertbar**; Primer-Dimere sind bei den Proben nicht relevant. (1 P.)\n\nc) z. B. Primerkonzentration senken, Annealing-Temperatur erhöhen (Gradient), Primer neu designen, Hot-Start-Polymerase, Fluoreszenz-Messung bei höherer Temperatur (z. B. 80 °C). (2 P.)"
+  },
+  {
+    "titel": "Pre-PCR / Post-PCR: Kontaminationen vermeiden",
+    "themen": ["qPCR"],
+    "lernziele": ["qPCR|a14"],
+    "k_stufe": 2, "punkte": 4, "schwierigkeit": 1,
+    "antwortformat": "linien", "antwortraum_cm": 7, "verwendung": "beide",
+    "text": "a) Begründe, weshalb in einem PCR-Labor die Bereiche Pre-PCR und Post-PCR räumlich getrennt sind.\n\nb) Nenne drei weitere Massnahmen, mit denen Kontaminationen vermieden werden.",
+    "loesung": "a) Nach der PCR liegen Amplikons in sehr hoher Kopienzahl vor. Schon kleinste Aerosole können neue Reaktionen kontaminieren und falsch-positive Resultate verursachen. Deshalb Arbeitsrichtung **nur von Pre nach Post**. (1 P.)\n\nb) je 1 P., z. B.: Filterspitzen; separate Pipetten, Kittel und Material je Bereich; UV-Bestrahlung/DNA-Decontamination der Werkbank; Reagenzien aliquotieren; Platten nach dem Lauf nicht öffnen; NTC mitführen; Handschuhe häufig wechseln; UNG/dUTP-System."
+  },
+  {
+    "titel": "SYBR Green oder TaqMan-Sonde?",
+    "themen": ["qPCR"],
+    "lernziele": ["qPCR|a7"],
+    "k_stufe": 4, "punkte": 6, "schwierigkeit": 2,
+    "antwortformat": "leer", "antwortraum_cm": 9, "verwendung": "beide",
+    "text": "Vergleiche den Nachweis mit SYBR Green und mit Hydrolyse-Sonden (TaqMan) in einer Tabelle bezüglich: Prinzip der Fluoreszenz, Spezifität, Möglichkeit für Multiplex, Kosten.\n\nEntscheide anschliessend begründet, welche Methode du für den Routinenachweis eines Erregers in Patientenproben wählst.",
+    "loesung": "| Kriterium | SYBR Green | TaqMan-Sonde |\n| Prinzip | Farbstoff interkaliert in jede dsDNA | Sonde wird durch 5'-Exonuklease gespalten, Reporter vom Quencher getrennt |\n| Spezifität | geringer (auch Dimere), Schmelzkurve nötig | hoch (Primer + Sonde) |\n| Multiplex | nicht möglich | möglich (verschiedene Farbstoffe) |\n| Kosten | günstig | teurer (Sonde) |\n\n(4 P.)\n\nEntscheid: **TaqMan**, weil im diagnostischen Routinebetrieb Spezifität wichtig ist und eine interne Kontrolle im selben Well (Multiplex) mitgeführt werden kann. (2 P.)"
+  },
+  {
+    "titel": "Ist diese qPCR-Planung vollständig?",
+    "themen": ["qPCR"],
+    "lernziele": ["qPCR|a11", "qPCR|a3"],
+    "k_stufe": 3, "punkte": 4, "schwierigkeit": 2,
+    "antwortformat": "linien", "antwortraum_cm": 7, "verwendung": "beide",
+    "text": "Eine Kollegin plant die relative Quantifizierung eines Zielgens in 6 Gewebeproben. Ihr Plattenplan enthält: die 6 Proben je einmal mit den Primern für das Zielgen und eine Positivkontrolle.\n\nNenne die fehlenden Elemente und begründe jeweils kurz, wozu sie dienen.",
+    "loesung": "je 1 P.:\n- **Technische Replikate** (meist Triplikate): erkennen Pipettierfehler, Streuung beurteilen.\n- **NTC**: Kontamination / Primer-Dimere erkennen.\n- **Referenzgen(e)** für alle Proben: Normierung (ΔCt), gleicht unterschiedliche Ausgangsmengen aus.\n- **Kalibrator / Kontrollprobe** (z. B. unbehandeltes Gewebe) für ΔΔCt; bei RT-qPCR zusätzlich **-RT-Kontrolle** gegen genomische DNA."
+  },
+  {
+    "titel": "Lagerung von qPCR-Reagenzien und Proben",
+    "themen": ["qPCR"],
+    "lernziele": ["qPCR|b8", "qPCR|b9"],
+    "k_stufe": 2, "punkte": 4, "schwierigkeit": 1,
+    "antwortformat": "linien", "antwortraum_cm": 6, "verwendung": "uebung",
+    "text": "Erläutere, wie folgende Materialien gelagert werden sollen, und begründe jeweils:\n\n1) Fluoreszenzmarkierte Sonde\n2) Polymerase / Master-Mix\n3) Isolierte RNA\n4) Primer-Stammlösung, die häufig gebraucht wird",
+    "loesung": "1) −20 °C, **dunkel**, aliquotiert – Fluorophor ist lichtempfindlich (Bleaching).\n2) −20 °C, nicht im Frost-Tau-Wechsel; während der Arbeit auf Eis/Kühlblock – Enzymaktivität bleibt erhalten.\n3) −80 °C, aliquotiert, RNase-frei – RNA wird von RNasen und durch Hydrolyse schnell abgebaut.\n4) Arbeitslösungen **aliquotieren**, Stammlösung bei −20 °C – vermeidet wiederholte Einfrier-Auftau-Zyklen und Kontamination.\n\nJe 1 P."
+  },
+  {
+    "titel": "Report a deviation (English)",
+    "themen": ["qPCR"],
+    "lernziele": ["qPCR|b17"],
+    "k_stufe": 3, "punkte": 4, "schwierigkeit": 2,
+    "antwortformat": "linien", "antwortraum_cm": 7, "verwendung": "beide",
+    "text": "During plate setup you noticed that you pipetted the master mix for row C twice. You discarded the plate and started again; the run is delayed by 2 hours.\n\nWrite a short message (4–5 sentences) in English to your supervisor that describes the deviation, the action you took and the consequence.",
+    "loesung": "Beispiel: *Dear Ms Meier, during the plate setup for the qPCR run this morning I accidentally added the master mix twice to row C. Because the reaction volumes in these wells were incorrect, I discarded the plate and prepared a new one with fresh master mix. The run has therefore been delayed by about two hours and will finish at 4 pm. I have documented the deviation in the lab journal. Best regards, …*\n\nBewertung: Abweichung klar (1), Massnahme (1), Konsequenz (1), sprachlich verständlich (1)."
+  },
+  {
+    "titel": "DNA-Konzentration und Reinheit aus der Photometrie",
+    "themen": ["qPCR"],
+    "lernziele": ["qPCR|b6"],
+    "leistungsziele": ["b.1.7", "e.2.1"],
+    "k_stufe": 3, "punkte": 4, "schwierigkeit": 2,
+    "antwortformat": "karo", "antwortraum_cm": 6, "verwendung": "beide",
+    "text": "Eine DNA-Probe wird 1:20 verdünnt gemessen: A_{260} = 0,250; A_{280} = 0,152.\n\na) Berechne die DNA-Konzentration der unverdünnten Probe (1 A_{260}-Einheit ≙ 50 ng/µL dsDNA).\nb) Beurteile die Reinheit.",
+    "loesung": "a) c = 0,250 × 50 ng/µL × 20 = **250 ng/µL** (2 P.)\n\nb) A_{260}/A_{280} = 0,250 / 0,152 = **1,64** → unter dem Sollwert von ca. 1,8 → Hinweis auf **Proteinverunreinigung** (bzw. Phenol); ggf. erneut reinigen. (2 P.)"
+  },
+  {
+    "titel": "Plattenplan erstellen",
+    "themen": ["qPCR"],
+    "lernziele": ["qPCR|a6"],
+    "leistungsziele": ["b.1.7"],
+    "k_stufe": 4, "punkte": 6, "schwierigkeit": 2,
+    "antwortformat": "karo", "antwortraum_cm": 9, "verwendung": "uebung",
+    "text": "Erstelle einen Plattenplan (Ausschnitt einer 96-Well-Platte, Reihen A–H, Spalten 1–12) für folgenden Auftrag: 4 Proben (P1–P4), jeweils mit Zielgen (Z) und Referenzgen (R), alle in Triplikaten, und je eine NTC in Triplikaten für Z und R.\n\nGib die Anzahl belegter Wells an und begründe deine Anordnung.",
+    "loesung": "4 Proben × 2 Assays × 3 = 24 Wells + 2 × 3 NTC = **30 Wells**.\n\nSinnvoll z. B.: Reihe A–D: P1–P4 mit Z in Spalten 1–3 und R in Spalten 4–6; Reihe E: NTC-Z (1–3), NTC-R (4–6).\n\nKriterien (je 1 P.): alle Proben vorhanden, Triplikate nebeneinander, Assays blockweise (Master-Mix spaltenweise pipettierbar), NTC vorhanden und **am Ende** pipettiert/räumlich getrennt, Beschriftung klar, Anzahl Wells korrekt."
+  },
+  {
+    "titel": "Aufbau der Neubauer-Zählkammer",
+    "themen": ["Neubauer-Zählkammer"],
+    "leistungsziele": ["b.1.4"],
+    "k_stufe": 2, "punkte": 3, "schwierigkeit": 1,
+    "antwortformat": "linien", "antwortraum_cm": 5, "verwendung": "beide",
+    "text": "a) Wie tief ist die Kammer einer Neubauer-improved-Zählkammer, und welche Fläche hat ein Grossquadrat?\nb) Berechne das Volumen über einem Grossquadrat in µL und in mL.",
+    "loesung": "a) Kammertiefe **0,1 mm**, Grossquadrat **1 mm × 1 mm = 1 mm²** (1 P.)\n\nb) V = 1 mm² × 0,1 mm = 0,1 mm³ = **0,1 µL = 10^{−4} mL** (2 P.) → daher der Kammerfaktor 10^{4}."
+  },
+  {
+    "titel": "Zellzahl aus der Neubauer-Zählung berechnen",
+    "themen": ["Neubauer-Zählkammer"],
+    "leistungsziele": ["a.2.3", "b.1.7"],
+    "k_stufe": 3, "punkte": 4, "schwierigkeit": 2,
+    "antwortformat": "karo", "antwortraum_cm": 6, "verwendung": "beide",
+    "text": "Eine Zellsuspension wird 1:1 mit Trypanblau gemischt (Verdünnungsfaktor 2). In den vier Eck-Grossquadraten zählst du 52, 48, 61 und 55 ungefärbte Zellen.\n\nBerechne die Konzentration lebender Zellen in der ursprünglichen Suspension in Zellen/mL.",
+    "loesung": "Mittelwert = (52 + 48 + 61 + 55) / 4 = 216 / 4 = **54 Zellen/Grossquadrat** (1 P.)\n\nc = 54 × 2 × 10^{4} Zellen/mL = **1,08 · 10^{6} Zellen/mL** (3 P.: Verdünnung 1 P., Kammerfaktor 1 P., Resultat mit Einheit 1 P.)"
+  },
+  {
+    "titel": "Viabilität mit Trypanblau",
+    "themen": ["Neubauer-Zählkammer"],
+    "leistungsziele": ["e.2.1", "b.5.1"],
+    "k_stufe": 3, "punkte": 3, "schwierigkeit": 1,
+    "antwortformat": "karo", "antwortraum_cm": 4, "verwendung": "beide",
+    "text": "In denselben vier Grossquadraten wie in der Zellzählung (216 ungefärbte Zellen) zählst du zusätzlich 24 blau gefärbte Zellen.\n\na) Berechne die Viabilität.\nb) Für die Weiterkultivierung wird eine Viabilität ≥ 90 % verlangt. Darf die Kultur verwendet werden?",
+    "loesung": "a) Viabilität = 216 / (216 + 24) × 100 % = **90 %** (2 P.)\n\nb) Ja, genau an der Grenze – die Kultur darf verwendet werden; der Wert sollte aber dokumentiert und beim nächsten Passagieren beobachtet werden. (1 P.)"
+  },
+  {
+    "titel": "Zellen aussäen",
+    "themen": ["Neubauer-Zählkammer"],
+    "leistungsziele": ["a.2.3", "b.1.3"],
+    "k_stufe": 3, "punkte": 4, "schwierigkeit": 2,
+    "antwortformat": "karo", "antwortraum_cm": 6, "verwendung": "pruefung",
+    "text": "Deine Zellsuspension enthält 1,08 · 10^{6} lebende Zellen/mL. Du brauchst eine Kulturflasche mit 25 mL Suspension mit 2 · 10^{5} Zellen/mL.\n\nWie viel Zellsuspension und wie viel Medium pipettierst du?",
+    "loesung": "c₁ · V₁ = c₂ · V₂ → V₁ = 2 · 10^{5} × 25 mL / 1,08 · 10^{6} = **4,63 mL Zellsuspension** (3 P.)\n\nMedium: 25 − 4,63 = **20,37 mL** (1 P.)"
+  },
+  {
+    "titel": "Fehlerquellen beim Zählen",
+    "themen": ["Neubauer-Zählkammer"],
+    "leistungsziele": ["b.5.6", "b.5.3"],
+    "k_stufe": 3, "punkte": 4, "schwierigkeit": 2,
+    "antwortformat": "linien", "antwortraum_cm": 7, "verwendung": "beide",
+    "text": "Deine Zählung in den vier Grossquadraten ergibt 12, 95, 30 und 71 Zellen.\n\na) Beurteile das Resultat.\nb) Nenne drei mögliche Ursachen für solche Abweichungen und wie du sie vermeidest.",
+    "loesung": "a) Die Werte streuen sehr stark (12 bis 95) → die Zellen sind **nicht gleichmässig verteilt**; das Resultat ist nicht verlässlich und die Zählung muss wiederholt werden. (1 P.)\n\nb) je 1 P., z. B.:\n- Suspension nicht gut gemischt / Zellen abgesunken → vor dem Befüllen resuspendieren.\n- Zellaggregate → vorsichtig auf- und abpipettieren, ggf. vereinzeln.\n- Kammer über- oder unterfüllt, Luftblasen, Deckglas nicht korrekt aufgelegt (keine Newton-Ringe) → neu befüllen.\n- Zellen auf den Begrenzungslinien doppelt gezählt → **L-Regel** (nur zwei Seiten zählen)."
+  }
+]

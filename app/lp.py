@@ -1,0 +1,507 @@
+"""Bereich der Lehrpersonen: Klassen, Korrektur, Aufgabenverwaltung, Lernziele, Prüfungen."""
+import base64
+import io
+import json
+import re
+import secrets
+from collections import Counter
+
+from flask import (Blueprint, abort, flash, jsonify, redirect, render_template, request, send_file, url_for)
+from flask_login import current_user
+from PIL import Image
+
+from . import importers, pdfgen, storage
+from .auth import lp_required
+from .lernende import auswahl_aus_request, bild_pfad, blatt_pdf_rel
+from .models import (ANTWORTFORMATE, VERWENDUNGEN, Aufgabe, AbgabeSeite, Bereich, Klasse, Leistungsziel,
+                     Lernziel, Pruefung, PruefungAufgabe, Thema, Uebungsblatt, User, db, now)
+from .selection import (geuebte_aufgaben_der_klasse, stelle_pruefung_zusammen, ziele_beschreiben)
+
+bp = Blueprint("lp", __name__, url_prefix="/lp")
+
+
+def meine_lernende_ids():
+    return [u.id for k in current_user.eigene_klassen for u in k.lernende]
+
+
+def pruefe_klasse(klasse):
+    if klasse.lp_id != current_user.id:
+        abort(403)
+
+
+def pruefe_lernende(u):
+    if not current_user.betreut(u):
+        abort(403)
+
+
+# ---------------------------------------------------------------- Übersicht
+
+@bp.route("/")
+@lp_required
+def dashboard():
+    ids = meine_lernende_ids()
+    offen = (Uebungsblatt.query.filter(Uebungsblatt.lernende_id.in_(ids), Uebungsblatt.status == "eingereicht")
+             .order_by(Uebungsblatt.erstellt_am).all()) if ids else []
+    letzte = (Uebungsblatt.query.filter(Uebungsblatt.lernende_id.in_(ids))
+              .order_by(Uebungsblatt.erstellt_am.desc()).limit(10).all()) if ids else []
+    stats = {"aufgaben": Aufgabe.query.filter_by(aktiv=True).count(), "themen": Thema.query.count(),
+             "lernziele": Lernziel.query.count(), "pruefungen": Pruefung.query.filter_by(lp_id=current_user.id).count()}
+    return render_template("lp/dashboard.html", offen=offen, letzte=letzte, stats=stats)
+
+
+# ---------------------------------------------------------------- Klassen & Lernende
+
+@bp.route("/klassen", methods=["GET", "POST"])
+@lp_required
+def klassen():
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        if name:
+            db.session.add(Klasse(name=name, lp=current_user))
+            db.session.commit()
+            flash(f"Klasse {name} erstellt.", "ok")
+        return redirect(url_for(".klassen"))
+    return render_template("lp/klassen.html", klassen=current_user.eigene_klassen)
+
+
+def _benutzername(name):
+    basis = re.sub(r"[^a-z0-9]+", ".", name.lower()
+                   .replace("ä", "ae").replace("ö", "oe").replace("ü", "ue").replace("é", "e").replace("è", "e")
+                   ).strip(".")[:40] or "user"
+    kandidat, i = basis, 1
+    while User.query.filter_by(benutzername=kandidat).first():
+        i += 1
+        kandidat = f"{basis}{i}"
+    return kandidat
+
+
+def _passwort():
+    alphabet = "abcdefghjkmnpqrstuvwxyz23456789"
+    return "".join(secrets.choice(alphabet) for _ in range(10))
+
+
+@bp.route("/klassen/<int:klasse_id>", methods=["GET", "POST"])
+@lp_required
+def klasse(klasse_id):
+    k = db.get_or_404(Klasse, klasse_id)
+    pruefe_klasse(k)
+    neue_zugaenge = []
+    if request.method == "POST":
+        for zeile in request.form.get("namen", "").splitlines():
+            name = zeile.strip()
+            if not name:
+                continue
+            u = User(benutzername=_benutzername(name), anzeigename=name, rolle="lernende", klasse=k)
+            pw = _passwort()
+            u.set_passwort(pw)
+            db.session.add(u)
+            neue_zugaenge.append((name, u.benutzername, pw))
+        db.session.commit()
+        if neue_zugaenge:
+            flash(f"{len(neue_zugaenge)} Zugänge erstellt. Passwörter jetzt notieren – sie werden nicht erneut angezeigt.", "ok")
+    return render_template("lp/klasse.html", klasse=k, neue_zugaenge=neue_zugaenge)
+
+
+@bp.route("/lernende/<int:user_id>")
+@lp_required
+def lernende_profil(user_id):
+    u = db.get_or_404(User, user_id)
+    pruefe_lernende(u)
+    blaetter = u.uebungsblaetter
+    # Lernstand: erreichte Punkte pro Thema aus korrigierten Blättern
+    stand = {}
+    for b in blaetter:
+        for ba in b.aufgaben:
+            if ba.punkte_erreicht is None:
+                continue
+            for t in ba.aufgabe.themen or [None]:
+                key = t.name if t else "ohne Thema"
+                e, m = stand.get(key, (0, 0))
+                stand[key] = (e + ba.punkte_erreicht, m + ba.aufgabe.punkte)
+    return render_template("lp/lernende.html", u=u, blaetter=blaetter, stand=stand)
+
+
+@bp.route("/lernende/<int:user_id>/passwort", methods=["POST"])
+@lp_required
+def lernende_passwort(user_id):
+    u = db.get_or_404(User, user_id)
+    pruefe_lernende(u)
+    pw = _passwort()
+    u.set_passwort(pw)
+    db.session.commit()
+    flash(f"Neues Passwort für {u.anzeigename} ({u.benutzername}): {pw}", "ok")
+    return redirect(url_for(".lernende_profil", user_id=u.id))
+
+
+# ---------------------------------------------------------------- Korrektur
+
+@bp.route("/korrektur/<int:blatt_id>")
+@lp_required
+def korrektur(blatt_id):
+    b = db.get_or_404(Uebungsblatt, blatt_id)
+    pruefe_lernende(b.lernende)
+    return render_template("lp/korrektur.html", blatt=b)
+
+
+@bp.route("/korrektur/<int:blatt_id>", methods=["POST"])
+@lp_required
+def korrektur_speichern(blatt_id):
+    """Erwartet JSON: {aufgaben:[{id,punkte,kommentar}], gesamtkommentar, loesung_freigeben, abschliessen,
+    seiten:[{id, annotationen, bild (dataURL PNG oder null)}]}"""
+    b = db.get_or_404(Uebungsblatt, blatt_id)
+    pruefe_lernende(b.lernende)
+    d = request.get_json(force=True)
+    ba_map = {ba.id: ba for ba in b.aufgaben}
+    for eintrag in d.get("aufgaben", []):
+        ba = ba_map.get(int(eintrag["id"]))
+        if not ba:
+            continue
+        p = eintrag.get("punkte")
+        if p in ("", None):
+            ba.punkte_erreicht = None
+        else:
+            p = float(str(p).replace(",", "."))
+            ba.punkte_erreicht = max(0.0, min(p, ba.aufgabe.punkte))
+        ba.kommentar = (eintrag.get("kommentar") or "")[:5000]
+    b.gesamtkommentar = (d.get("gesamtkommentar") or "")[:10000]
+    b.loesung_freigegeben = bool(d.get("loesung_freigeben"))
+    seiten_ok = {s.id: s for a in b.abgaben for s in a.seiten}
+    for s in d.get("seiten", []):
+        seite = seiten_ok.get(int(s["id"]))
+        if not seite:
+            continue
+        seite.annotationen = json.dumps(s.get("annotationen") or [])[:2_000_000]
+        bild = s.get("bild")
+        if bild and bild.startswith("data:image/"):
+            roh = base64.b64decode(bild.split(",", 1)[1])
+            im = Image.open(io.BytesIO(roh)).convert("RGB")
+            if seite.bild_korrigiert is None:
+                seite.bild_korrigiert = storage.relativ("abgaben", str(b.id), f"korr_{seite.id}.jpg")
+            im.save(storage.pfad(seite.bild_korrigiert), "JPEG", quality=85)
+        elif not s.get("annotationen"):
+            seite.bild_korrigiert = None
+    if d.get("abschliessen"):
+        b.status = "korrigiert"
+        b.korrigiert_am = now()
+    db.session.commit()
+    if b.status == "korrigiert":
+        pfade = [storage.absolut(s.bild_korrigiert or s.bild) for s in (b.letzte_abgabe.seiten if b.letzte_abgabe else [])]
+        storage.speichere_bytes(blatt_pdf_rel(b, "rueckmeldung"), pdfgen.rueckmeldung_pdf(b, pfade))
+    return jsonify(ok=True, status=b.status, punkte=b.erreichte_punkte)
+
+
+@bp.route("/korrektur/<int:blatt_id>/wieder-oeffnen", methods=["POST"])
+@lp_required
+def korrektur_oeffnen(blatt_id):
+    b = db.get_or_404(Uebungsblatt, blatt_id)
+    pruefe_lernende(b.lernende)
+    b.status = "eingereicht" if b.abgaben else "offen"
+    db.session.commit()
+    return redirect(url_for(".korrektur", blatt_id=b.id))
+
+
+# ---------------------------------------------------------------- Aufgabenverwaltung
+
+@bp.route("/aufgaben")
+@lp_required
+def aufgaben():
+    q = Aufgabe.query
+    thema = request.args.get("thema", type=int)
+    suche = request.args.get("q", "").strip()
+    verw = request.args.get("verwendung", "")
+    inaktiv = request.args.get("inaktiv") == "1"
+    if thema:
+        q = q.filter(Aufgabe.themen.any(Thema.id == thema))
+    if suche:
+        q = q.filter(Aufgabe.titel.ilike(f"%{suche}%") | Aufgabe.text.ilike(f"%{suche}%"))
+    if verw:
+        q = q.filter(Aufgabe.verwendung == verw)
+    if not inaktiv:
+        q = q.filter(Aufgabe.aktiv.is_(True))
+    return render_template("lp/aufgaben.html", aufgaben=q.order_by(Aufgabe.id.desc()).all(),
+                           themen=Thema.query.order_by(Thema.name).all())
+
+
+def _formular_kontext(aufgabe):
+    return dict(aufgabe=aufgabe, themen=Thema.query.order_by(Thema.name).all(),
+                bereiche=Bereich.query.order_by(Bereich.code).all())
+
+
+@bp.route("/aufgaben/neu", methods=["GET", "POST"])
+@bp.route("/aufgaben/<int:aufgabe_id>", methods=["GET", "POST"])
+@lp_required
+def aufgabe_bearbeiten(aufgabe_id=None):
+    a = db.get_or_404(Aufgabe, aufgabe_id) if aufgabe_id else None
+    if request.method == "POST":
+        f = request.form
+        if not f.get("titel", "").strip() or not f.get("text", "").strip():
+            flash("Titel und Aufgabentext sind Pflicht.", "fehler")
+            return render_template("lp/aufgabe_form.html", **_formular_kontext(a))
+        a = a or Aufgabe()
+        a.titel = f["titel"].strip()[:200]
+        a.text = f["text"]
+        a.loesung = f.get("loesung", "")
+        a.punkte = float(f.get("punkte", "2").replace(",", ".") or 2)
+        a.k_stufe = int(f["k_stufe"]) if f.get("k_stufe", "").isdigit() else None
+        a.schwierigkeit = int(f.get("schwierigkeit", 2) or 2)
+        a.antwortformat = f.get("antwortformat") if f.get("antwortformat") in ANTWORTFORMATE else "linien"
+        a.antwortraum_cm = float(f.get("antwortraum_cm", "5").replace(",", ".") or 0)
+        a.verwendung = f.get("verwendung") if f.get("verwendung") in VERWENDUNGEN else "beide"
+        a.aktiv = f.get("aktiv") == "1"
+        a.themen = Thema.query.filter(Thema.id.in_([int(x) for x in f.getlist("thema")])).all()
+        neues_thema = f.get("neues_thema", "").strip()
+        if neues_thema:
+            t = Thema.query.filter_by(name=neues_thema).first() or Thema(name=neues_thema)
+            a.themen.append(t)
+        a.lernziele = Lernziel.query.filter(Lernziel.id.in_([int(x) for x in f.getlist("lernziel")])).all()
+        codes = set(f.getlist("bivo"))
+        for lz in a.lernziele:  # Lernziele bringen ihre BiVo-Leistungsziele automatisch mit
+            codes |= {l.code for l in lz.leistungsziele}
+        a.leistungsziele = Leistungsziel.query.filter(Leistungsziel.code.in_(codes)).all()
+        bild = request.files.get("bild")
+        if bild and bild.filename:
+            try:
+                im = storage.upload_zu_seitenbildern(bild)[0]
+                a.bild = storage.speichere_bild(im, "aufgabenbilder")
+            except ValueError as e:
+                flash(str(e), "fehler")
+        if f.get("bild_entfernen") == "1":
+            a.bild = None
+        db.session.add(a)
+        db.session.commit()
+        flash("Aufgabe gespeichert.", "ok")
+        if f.get("weiter") == "vorschau":
+            return redirect(url_for(".aufgabe_bearbeiten", aufgabe_id=a.id, vorschau=1))
+        return redirect(url_for(".aufgaben"))
+    return render_template("lp/aufgabe_form.html", **_formular_kontext(a))
+
+
+@bp.route("/aufgaben/<int:aufgabe_id>/vorschau.pdf")
+@lp_required
+def aufgabe_vorschau(aufgabe_id):
+    a = db.get_or_404(Aufgabe, aufgabe_id)
+    return send_file(io.BytesIO(pdfgen.aufgabe_vorschau_pdf(a, bild_pfad)), mimetype="application/pdf",
+                     download_name=f"Aufgabe_{a.id}.pdf")
+
+
+@bp.route("/aufgaben/<int:aufgabe_id>/duplizieren", methods=["POST"])
+@lp_required
+def aufgabe_duplizieren(aufgabe_id):
+    a = db.get_or_404(Aufgabe, aufgabe_id)
+    kopie = Aufgabe(**{k: getattr(a, k) for k in ("text", "loesung", "punkte", "k_stufe", "schwierigkeit",
+                                                  "antwortformat", "antwortraum_cm", "verwendung", "bild")})
+    kopie.titel = (a.titel + " (Kopie)")[:200]
+    kopie.themen, kopie.lernziele, kopie.leistungsziele = list(a.themen), list(a.lernziele), list(a.leistungsziele)
+    db.session.add(kopie)
+    db.session.commit()
+    flash("Kopie erstellt – jetzt anpassen (z. B. andere Zahlenwerte).", "ok")
+    return redirect(url_for(".aufgabe_bearbeiten", aufgabe_id=kopie.id))
+
+
+@bp.route("/aufgaben/export.json")
+@lp_required
+def aufgaben_export():
+    daten = [a.to_dict() for a in Aufgabe.query.order_by(Aufgabe.id)]
+    return send_file(io.BytesIO(json.dumps(daten, ensure_ascii=False, indent=2).encode()),
+                     mimetype="application/json", as_attachment=True, download_name="aufgaben.json")
+
+
+@bp.route("/aufgaben/import", methods=["POST"])
+@lp_required
+def aufgaben_import():
+    f = request.files.get("datei")
+    try:
+        daten = json.load(f)
+        n = importers.import_aufgaben(daten)
+        flash(f"{n} Aufgaben importiert.", "ok")
+    except Exception as e:  # noqa: BLE001 – Rückmeldung an die Lehrperson
+        db.session.rollback()
+        flash(f"Import fehlgeschlagen: {e}", "fehler")
+    return redirect(url_for(".aufgaben"))
+
+
+# ---------------------------------------------------------------- Lernziele & Kompetenzen
+
+@bp.route("/lernziele")
+@lp_required
+def lernziele():
+    themen = Thema.query.order_by(Thema.name).all()
+    zaehler = Counter()
+    for a in Aufgabe.query.filter_by(aktiv=True):
+        for lz in a.lernziele:
+            zaehler[(lz.id, "u" if a.verwendung != "pruefung" else "p")] += 1
+            if a.verwendung == "beide":
+                zaehler[(lz.id, "p")] += 1
+    return render_template("lp/lernziele.html", themen=themen, zaehler=zaehler)
+
+
+@bp.route("/lernziele/import", methods=["GET", "POST"])
+@lp_required
+def lernziele_import():
+    vorschau = None
+    if request.method == "POST":
+        thema = request.form.get("thema", "").strip()
+        text = request.form.get("text", "")
+        datei = request.files.get("datei")
+        if datei and datei.filename:
+            text = importers.pdf_zu_text(datei.read())
+        eintraege = importers.parse_lernziele(text)
+        if not thema:
+            flash("Bitte einen Themennamen angeben.", "fehler")
+        elif not eintraege:
+            flash("Keine Lernziele erkannt. Format: '1. Ich kann … (a.1.1, K2)'.", "fehler")
+        elif request.form.get("bestaetigt") == "1":
+            t, neu, akt, fehlend = importers.import_lernziele(thema, eintraege, request.form.get("ersetzen") == "1")
+            flash(f"{t.name}: {neu} neue, {akt} aktualisierte Lernziele.", "ok")
+            if fehlend:
+                flash("Unbekannte BiVo-Codes (nicht verknüpft): " + ", ".join(fehlend), "info")
+            return redirect(url_for(".lernziele"))
+        else:
+            vorschau = eintraege
+        return render_template("lp/lernziele_import.html", vorschau=vorschau, thema=thema, text=text)
+    return render_template("lp/lernziele_import.html", vorschau=None, thema="", text="")
+
+
+@bp.route("/themen/<int:thema_id>", methods=["POST"])
+@lp_required
+def thema_bearbeiten(thema_id):
+    t = db.get_or_404(Thema, thema_id)
+    if request.form.get("loeschen") == "1":
+        if Aufgabe.query.filter(Aufgabe.themen.any(Thema.id == t.id)).count():
+            flash("Thema wird noch von Aufgaben verwendet.", "fehler")
+        else:
+            db.session.delete(t)
+            db.session.commit()
+            flash("Thema gelöscht.", "ok")
+    else:
+        t.name = request.form.get("name", t.name).strip() or t.name
+        t.beschreibung = request.form.get("beschreibung", "")
+        db.session.commit()
+    return redirect(url_for(".lernziele"))
+
+
+@bp.route("/kompetenzen", methods=["GET", "POST"])
+@lp_required
+def kompetenzen():
+    if request.method == "POST":
+        f = request.files.get("datei")
+        try:
+            nb, nh, nl = importers.import_kompetenzen(f)
+            flash(f"Importiert: {nb} Bereiche, {nh} Handlungskompetenzen, {nl} Leistungsziele.", "ok")
+        except Exception as e:  # noqa: BLE001
+            db.session.rollback()
+            flash(f"Import fehlgeschlagen: {e}", "fehler")
+        return redirect(url_for(".kompetenzen"))
+    zaehler = Counter(l.code for a in Aufgabe.query.filter_by(aktiv=True) for l in a.leistungsziele)
+    return render_template("lp/kompetenzen.html", bereiche=Bereich.query.order_by(Bereich.code).all(), zaehler=zaehler)
+
+
+# ---------------------------------------------------------------- Prüfungen
+
+@bp.route("/pruefungen")
+@lp_required
+def pruefungen():
+    liste = Pruefung.query.filter_by(lp_id=current_user.id).order_by(Pruefung.erstellt_am.desc()).all()
+    return render_template("lp/pruefungen.html", pruefungen=liste)
+
+
+@bp.route("/pruefungen/neu", methods=["GET", "POST"])
+@lp_required
+def pruefung_neu():
+    if request.method == "POST":
+        f = request.form
+        themen, codes, lernziele, k = auswahl_aus_request(f)
+        klasse = db.session.get(Klasse, f.get("klasse_id", type=int) or 0)
+        if klasse:
+            pruefe_klasse(klasse)
+        ausschliessen = geuebte_aufgaben_der_klasse(klasse) if (klasse and f.get("ohne_geuebte") == "1") else set()
+        param = dict(themen_ids=themen, lernziel_ids=lernziele, leistungsziel_codes=codes,
+                     ziel_punkte=float(f.get("ziel_punkte", 30) or 30),
+                     max_aufgaben=f.get("max_aufgaben", type=int) or None, k_stufen=k,
+                     nur_pruefungsaufgaben=f.get("nur_pruefung") == "1")
+        res = stelle_pruefung_zusammen(**param, ausschliessen_ids=ausschliessen)
+        if not res["aufgaben"]:
+            flash("Mit diesen Parametern wurden keine Aufgaben gefunden.", "fehler")
+            return redirect(url_for(".pruefung_neu"))
+        p = Pruefung(titel=f.get("titel", "").strip() or "Prüfung", lp=current_user, klasse=klasse,
+                     datum=f.get("datum", ""), dauer_min=f.get("dauer_min", type=int),
+                     hinweise=f.get("hinweise", ""), parameter=json.dumps(param))
+        for i, a in enumerate(res["aufgaben"], 1):
+            p.aufgaben.append(PruefungAufgabe(aufgabe=a, position=i))
+        db.session.add(p)
+        db.session.commit()
+        if res["nicht_abgedeckt"]:
+            flash(f"{len(res['nicht_abgedeckt'])} Ziel(e) konnten nicht abgedeckt werden – siehe Übersicht.", "info")
+        return redirect(url_for(".pruefung", pruefung_id=p.id))
+    return render_template("lp/pruefung_neu.html", themen=Thema.query.order_by(Thema.name).all(),
+                           bereiche=Bereich.query.order_by(Bereich.code).all(), klassen=current_user.eigene_klassen)
+
+
+def _abdeckung(p):
+    param = json.loads(p.parameter or "{}")
+    lz_ids, codes = set(param.get("lernziel_ids", [])), set(param.get("leistungsziel_codes", []))
+    ziele = {("lz", i) for i in lz_ids} | {("bivo", c) for c in codes}
+    abgedeckt = set()
+    for pa in p.aufgaben:
+        abgedeckt |= {("lz", l.id) for l in pa.aufgabe.lernziele if l.id in lz_ids}
+        abgedeckt |= {("bivo", l.code) for l in pa.aufgabe.leistungsziele if l.code in codes}
+    return ziele_beschreiben(abgedeckt), ziele_beschreiben(ziele - abgedeckt), param
+
+
+@bp.route("/pruefungen/<int:pruefung_id>", methods=["GET", "POST"])
+@lp_required
+def pruefung(pruefung_id):
+    p = db.get_or_404(Pruefung, pruefung_id)
+    if p.lp_id != current_user.id:
+        abort(403)
+    if request.method == "POST":
+        aktion = request.form.get("aktion")
+        if aktion == "meta":
+            p.titel = request.form.get("titel", p.titel).strip() or p.titel
+            p.datum = request.form.get("datum", "")
+            p.dauer_min = request.form.get("dauer_min", type=int)
+            p.hinweise = request.form.get("hinweise", "")
+        elif aktion == "entfernen":
+            pa = db.get_or_404(PruefungAufgabe, request.form.get("pa_id", type=int))
+            p.aufgaben.remove(pa)
+        elif aktion in ("hoch", "runter"):
+            pa = db.get_or_404(PruefungAufgabe, request.form.get("pa_id", type=int))
+            i = p.aufgaben.index(pa)
+            j = i - 1 if aktion == "hoch" else i + 1
+            if 0 <= j < len(p.aufgaben):
+                p.aufgaben[i].position, p.aufgaben[j].position = p.aufgaben[j].position, p.aufgaben[i].position
+        elif aktion == "hinzufuegen":
+            a = db.session.get(Aufgabe, request.form.get("aufgabe_id", type=int) or 0)
+            if a and a.id not in {x.aufgabe_id for x in p.aufgaben}:
+                p.aufgaben.append(PruefungAufgabe(aufgabe=a, position=len(p.aufgaben) + 1))
+        elif aktion == "loeschen":
+            db.session.delete(p)
+            db.session.commit()
+            flash("Prüfung gelöscht.", "ok")
+            return redirect(url_for(".pruefungen"))
+        db.session.commit()
+        for i, pa in enumerate(sorted(p.aufgaben, key=lambda x: x.position), 1):
+            pa.position = i
+        db.session.commit()
+        return redirect(url_for(".pruefung", pruefung_id=p.id))
+    abgedeckt, offen, param = _abdeckung(p)
+    vorhandene = {pa.aufgabe_id for pa in p.aufgaben}
+    themen_ids = param.get("themen_ids") or []
+    q = Aufgabe.query.filter(Aufgabe.aktiv.is_(True), Aufgabe.verwendung != "uebung")
+    if themen_ids:
+        q = q.filter(Aufgabe.themen.any(Thema.id.in_(themen_ids)))
+    weitere = [a for a in q.order_by(Aufgabe.titel) if a.id not in vorhandene]
+    k_vert = Counter(pa.aufgabe.k_stufe for pa in p.aufgaben)
+    return render_template("lp/pruefung.html", p=p, abgedeckt=abgedeckt, offen=offen, weitere=weitere, k_vert=k_vert)
+
+
+@bp.route("/pruefungen/<int:pruefung_id>/<art>.pdf")
+@lp_required
+def pruefung_pdf(pruefung_id, art):
+    p = db.get_or_404(Pruefung, pruefung_id)
+    if p.lp_id != current_user.id or art not in ("pruefung", "loesung"):
+        abort(404)
+    daten = pdfgen.pruefung_pdf(p, bild_pfad, loesung=(art == "loesung"))
+    name = re.sub(r"[^A-Za-z0-9_-]+", "_", p.titel)[:60]
+    return send_file(io.BytesIO(daten), mimetype="application/pdf",
+                     download_name=f"{name}{'_Loesung' if art == 'loesung' else ''}.pdf")

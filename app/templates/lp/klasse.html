@@ -1,0 +1,28 @@
+{% extends "base.html" %}{% from "_macros.html" import csrf %}
+{% block title %}{{ klasse.name }}{% endblock %}
+{% block content %}
+<h1>Klasse {{ klasse.name }}</h1>
+{% if neue_zugaenge %}
+<div class="card">
+  <h3>Neue Zugänge – bitte jetzt ausdrucken oder notieren</h3>
+  <table class="tab"><tr><th>Name</th><th>Benutzername</th><th>Passwort</th></tr>
+  {% for n, b, p in neue_zugaenge %}<tr><td>{{ n }}</td><td>{{ b }}</td><td><span class="pw">{{ p }}</span></td></tr>{% endfor %}
+  </table>
+  <p class="muted">Die Lernenden können ihr Passwort nach der ersten Anmeldung selbst ändern.</p>
+</div>
+{% endif %}
+<table class="tab">
+  <tr><th>Name</th><th>Benutzername</th><th>Übungsblätter</th><th>Zu korrigieren</th><th>Korrigiert</th></tr>
+  {% for u in klasse.lernende %}
+  <tr><td><a href="{{ url_for('lp.lernende_profil', user_id=u.id) }}">{{ u.anzeigename }}</a></td><td>{{ u.benutzername }}</td>
+      <td>{{ u.uebungsblaetter|length }}</td>
+      <td>{{ u.uebungsblaetter|selectattr('status', 'equalto', 'eingereicht')|list|length }}</td>
+      <td>{{ u.uebungsblaetter|selectattr('status', 'equalto', 'korrigiert')|list|length }}</td></tr>
+  {% else %}<tr><td colspan="5" class="muted">Noch keine Lernenden.</td></tr>{% endfor %}
+</table>
+<form method="post" class="card" style="margin-top:1rem">{{ csrf() }}
+  <label class="feld">Lernende hinzufügen (ein Name pro Zeile – Benutzername und Passwort werden erzeugt)
+    <textarea name="namen" rows="5" placeholder="Lea Muster&#10;Noah Beispiel"></textarea></label>
+  <button class="btn">Zugänge erstellen</button>
+</form>
+{% endblock %}

@@ -1,0 +1,61 @@
+{% extends "base.html" %}{% from "_macros.html" import csrf, status_badge %}
+{% block title %}{{ blatt.titel }}{% endblock %}
+{% block content %}
+<h1>{{ blatt.titel }} <span class="code">{{ blatt.code }}</span> {{ status_badge(blatt.status) }}</h1>
+<p class="muted">{{ blatt.auswahl }} · erstellt am {{ blatt.erstellt_am|datum }}</p>
+
+<div class="grid">
+  <div class="card">
+    <h3>1 · Ausdrucken &amp; lösen</h3>
+    <p>{{ blatt.aufgaben|length }} Aufgaben, total {{ blatt.max_punkte|pkt }} Punkte.</p>
+    <a class="btn" href="{{ url_for('lernende.blatt_pdf', blatt_id=blatt.id, art='aufgaben') }}" target="_blank">Übungsblatt (PDF) öffnen</a>
+    <ol class="muted">{% for ba in blatt.aufgaben %}<li>{{ ba.aufgabe.titel }} ({{ ba.aufgabe.punkte|pkt }} P.)</li>{% endfor %}</ol>
+  </div>
+  <div class="card">
+    <h3>2 · Fotos hochladen</h3>
+    <form method="post" action="{{ url_for('lernende.hochladen', blatt_id=blatt.id) }}" enctype="multipart/form-data">{{ csrf() }}
+      <label class="feld">Fotos oder PDF-Scan (mehrere möglich, in Seitenreihenfolge)
+        <input type="file" name="dateien" accept="image/*,application/pdf" multiple required></label>
+      <button class="btn">Hochladen</button>
+    </form>
+    <p class="muted">Tipp: Blatt flach hinlegen, von oben fotografieren, gutes Licht, ganze Seite im Bild.</p>
+    {% for ab in blatt.abgaben %}
+      <p class="muted">Abgabe vom {{ ab.hochgeladen_am|datum(true) }}: {{ ab.seiten|length }} Seite(n)</p>
+    {% endfor %}
+    {% if not blatt.abgaben %}
+      <form method="post" action="{{ url_for('lernende.loeschen', blatt_id=blatt.id) }}" onsubmit="return confirm('Übungsblatt wirklich löschen?')">{{ csrf() }}
+        <button class="link">Blatt löschen</button></form>
+    {% endif %}
+  </div>
+  <div class="card">
+    <h3>3 · Rückmeldung</h3>
+    {% if blatt.status == 'korrigiert' %}
+      <p class="stat">{{ blatt.erreichte_punkte|pkt }} / {{ blatt.max_punkte|pkt }}</p>
+      <a class="btn" href="{{ url_for('lernende.blatt_pdf', blatt_id=blatt.id, art='rueckmeldung') }}" target="_blank">Korrektur (PDF)</a>
+    {% elif blatt.status == 'eingereicht' %}
+      <p>Deine Abgabe wartet auf die Korrektur.</p>
+    {% else %}
+      <p class="muted">Noch keine Abgabe.</p>
+    {% endif %}
+    {% if blatt.loesung_freigegeben %}
+      <p><a class="btn sek" href="{{ url_for('lernende.blatt_pdf', blatt_id=blatt.id, art='loesung') }}" target="_blank">Musterlösung (PDF)</a></p>
+    {% endif %}
+  </div>
+</div>
+
+{% if blatt.status == 'korrigiert' %}
+<h2>Rückmeldung deiner Lehrperson</h2>
+{% if blatt.gesamtkommentar %}<div class="card" style="white-space: pre-wrap">{{ blatt.gesamtkommentar }}</div>{% endif %}
+<table class="tab">
+  <tr><th>Nr.</th><th>Aufgabe</th><th>Punkte</th><th>Kommentar</th></tr>
+  {% for ba in blatt.aufgaben %}
+  <tr><td>{{ ba.position }}</td><td>{{ ba.aufgabe.titel }}</td><td>{{ ba.punkte_erreicht|pkt }} / {{ ba.aufgabe.punkte|pkt }}</td>
+      <td style="white-space: pre-wrap">{{ ba.kommentar }}</td></tr>
+  {% endfor %}
+</table>
+<h3>Korrigierte Seiten</h3>
+{% for s in blatt.letzte_abgabe.seiten %}
+  <img class="feedback-bild" src="{{ url_for('lernende.seite_bild', seite_id=s.id, korrigiert=1) }}" alt="Seite {{ s.nr }}">
+{% endfor %}
+{% endif %}
+{% endblock %}

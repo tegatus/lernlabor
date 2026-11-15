@@ -1,0 +1,37 @@
+{% extends "base.html" %}{% from "_macros.html" import status_badge %}
+{% block title %}Übersicht{% endblock %}
+{% block content %}
+<h1>Übersicht</h1>
+<div class="grid">
+  <div class="card"><div class="stat">{{ offen|length }}</div>Abgaben warten auf Korrektur</div>
+  <div class="card"><div class="stat">{{ stats.aufgaben }}</div>aktive Aufgaben in {{ stats.themen }} Themen</div>
+  <div class="card"><div class="stat">{{ stats.lernziele }}</div>konkrete Lernziele</div>
+  <div class="card"><div class="stat">{{ stats.pruefungen }}</div>Prüfungen erstellt</div>
+</div>
+
+<h2>Zu korrigieren</h2>
+{% if offen %}
+<table class="tab">
+  <tr><th>Eingereicht</th><th>Lernende/r</th><th>Klasse</th><th>Blatt</th><th></th></tr>
+  {% for b in offen %}
+  <tr><td>{{ b.letzte_abgabe.hochgeladen_am|datum(true) }}</td>
+      <td>{{ b.lernende.anzeigename }}</td><td>{{ b.lernende.klasse.name }}</td>
+      <td><span class="code">{{ b.code }}</span> {{ b.titel }}</td>
+      <td><a class="btn klein" href="{{ url_for('lp.korrektur', blatt_id=b.id) }}">Korrigieren</a></td></tr>
+  {% endfor %}
+</table>
+{% else %}<p class="muted">Keine offenen Abgaben. 🎉</p>{% endif %}
+
+<h2>Zuletzt erstellte Übungsblätter</h2>
+<table class="tab">
+  <tr><th>Datum</th><th>Lernende/r</th><th>Blatt</th><th>Status</th><th>Lösungsblatt</th></tr>
+  {% for b in letzte %}
+  <tr><td>{{ b.erstellt_am|datum }}</td><td><a href="{{ url_for('lp.lernende_profil', user_id=b.lernende.id) }}">{{ b.lernende.anzeigename }}</a></td>
+      <td><a href="{{ url_for('lp.korrektur', blatt_id=b.id) }}">{{ b.titel }}</a></td><td>{{ status_badge(b.status) }}</td>
+      <td><a href="{{ url_for('lernende.blatt_pdf', blatt_id=b.id, art='loesung') }}" target="_blank">PDF</a></td></tr>
+  {% else %}<tr><td colspan="5" class="muted">Noch keine Übungsblätter.</td></tr>{% endfor %}
+</table>
+{% if not current_user.eigene_klassen %}
+<div class="flash info">Lege zuerst unter <a href="{{ url_for('lp.klassen') }}">Klassen</a> eine Klasse mit Lernenden an.</div>
+{% endif %}
+{% endblock %}

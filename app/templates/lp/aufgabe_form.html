@@ -1,0 +1,61 @@
+{% extends "base.html" %}{% from "_macros.html" import csrf, auswahl %}
+{% block title %}{{ aufgabe.titel if aufgabe else 'Neue Aufgabe' }}{% endblock %}
+{% block content %}
+<h1>{{ 'Aufgabe #%d bearbeiten'|format(aufgabe.id) if aufgabe else 'Neue Aufgabe' }}</h1>
+{% if aufgabe and request.args.get('vorschau') %}
+  <p><a class="btn sek" href="{{ url_for('lp.aufgabe_vorschau', aufgabe_id=aufgabe.id) }}" target="_blank">Vorschau-PDF öffnen</a></p>
+{% endif %}
+<form method="post" enctype="multipart/form-data">{{ csrf() }}
+<div class="zweispaltig">
+  <div>
+    <label class="feld">Titel <input name="titel" value="{{ aufgabe.titel if aufgabe }}" required maxlength="200"></label>
+    <label class="feld">Aufgabentext <textarea name="text" rows="14" required>{{ aufgabe.text if aufgabe }}</textarea></label>
+    <label class="feld">Musterlösung (inkl. Bewertungshinweisen) <textarea name="loesung" rows="10">{{ aufgabe.loesung if aufgabe }}</textarea></label>
+  </div>
+  <div>
+    <div class="hilfe">
+      <strong>Formatierung</strong><br>
+      Leerzeile = neuer Absatz · <code>- Punkt</code> Aufzählung · <code>a) …</code> Teilaufgabe<br>
+      <code>**fett**</code> · <code>*kursiv*</code> · <code>H_{2}O</code> tiefgestellt · <code>10^{6}</code> hochgestellt<br>
+      Tabelle: Zeilen wie <code>| Probe | Ct |</code> (erste Zeile = Kopf)<br>
+      Sonderzeichen direkt eingeben: µ ° × ± ≈ → Δ ₂
+    </div>
+    <div class="vierspaltig" style="margin-top:1rem">
+      <label class="feld">Punkte <input name="punkte" value="{{ aufgabe.punkte|pkt if aufgabe else 2 }}"></label>
+      <label class="feld">K-Stufe <select name="k_stufe"><option value="">–</option>
+        {% for k in range(1, 7) %}<option value="{{ k }}" {{ 'selected' if aufgabe and aufgabe.k_stufe == k }}>K{{ k }}</option>{% endfor %}</select></label>
+      <label class="feld">Schwierigkeit <select name="schwierigkeit">
+        {% for k, v in [(1, 'leicht'), (2, 'mittel'), (3, 'schwer')] %}<option value="{{ k }}" {{ 'selected' if (aufgabe.schwierigkeit if aufgabe else 2) == k }}>{{ v }}</option>{% endfor %}</select></label>
+      <label class="feld">Verwendung <select name="verwendung">
+        {% for k, v in VERWENDUNGEN.items() %}<option value="{{ k }}" {{ 'selected' if aufgabe and aufgabe.verwendung == k }}>{{ v }}</option>{% endfor %}</select></label>
+      <label class="feld">Antwortfeld <select name="antwortformat">
+        {% for k, v in ANTWORTFORMATE.items() %}<option value="{{ k }}" {{ 'selected' if aufgabe and aufgabe.antwortformat == k }}>{{ v }}</option>{% endfor %}</select></label>
+      <label class="feld">Höhe Antwortfeld (cm) <input name="antwortraum_cm" value="{{ aufgabe.antwortraum_cm|pkt if aufgabe else 5 }}"></label>
+      <label class="feld">Bild (optional) <input type="file" name="bild" accept="image/*"></label>
+      <label class="feld">Aktiv <select name="aktiv"><option value="1">ja</option><option value="0" {{ 'selected' if aufgabe and not aufgabe.aktiv }}>nein (archiviert)</option></select></label>
+    </div>
+    {% if aufgabe and aufgabe.bild %}
+      <p><img src="{{ url_for('lernende.aufgabenbild', aufgabe_id=aufgabe.id) }}" style="max-width: 260px; border: 1px solid #ddd"><br>
+      <label><input type="checkbox" name="bild_entfernen" value="1"> Bild entfernen</label></p>
+    {% endif %}
+    <h3>Zuordnung</h3>
+    <p class="muted">Gewählte Lernziele bringen ihre BiVo-Leistungsziele automatisch mit.</p>
+    {{ auswahl(themen, bereiche,
+               aufgabe.themen|map(attribute='id')|list if aufgabe else [],
+               aufgabe.lernziele|map(attribute='id')|list if aufgabe else [],
+               aufgabe.leistungsziele|map(attribute='code')|list if aufgabe else [], zeige_k=false) }}
+    <label class="feld">Neues Thema anlegen (optional) <input name="neues_thema" placeholder="z. B. Gelelektrophorese"></label>
+  </div>
+</div>
+<div class="aktionen">
+  <button class="btn" name="weiter" value="liste">Speichern</button>
+  <button class="btn sek" name="weiter" value="vorschau">Speichern &amp; Vorschau</button>
+  <a href="{{ url_for('lp.aufgaben') }}">Abbrechen</a>
+</div>
+</form>
+{% if aufgabe %}
+<form method="post" action="{{ url_for('lp.aufgabe_duplizieren', aufgabe_id=aufgabe.id) }}">{{ csrf() }}
+  <button class="link">Als Vorlage duplizieren (z. B. Variante mit anderen Zahlen)</button></form>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='auswahl.js') }}"></script>{% endblock %}

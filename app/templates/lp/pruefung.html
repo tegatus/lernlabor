@@ -1,0 +1,64 @@
+{% extends "base.html" %}{% from "_macros.html" import csrf %}
+{% block title %}{{ p.titel }}{% endblock %}
+{% block content %}
+<h1>{{ p.titel }}</h1>
+<div class="aktionen">
+  <a class="btn" href="{{ url_for('lp.pruefung_pdf', pruefung_id=p.id, art='pruefung') }}" target="_blank">Prüfung (PDF)</a>
+  <a class="btn sek" href="{{ url_for('lp.pruefung_pdf', pruefung_id=p.id, art='loesung') }}" target="_blank">Lösung (PDF)</a>
+  <span class="muted">{{ p.aufgaben|length }} Aufgaben · {{ p.max_punkte|pkt }} Punkte ·
+    K-Verteilung: {% for k, n in k_vert|dictsort %}K{{ k }}: {{ n }}{{ ', ' if not loop.last }}{% endfor %}</span>
+</div>
+
+<div class="zweispaltig">
+<div>
+  <h2>Aufgaben</h2>
+  <table class="tab">
+    <tr><th>Nr.</th><th>Aufgabe</th><th>K</th><th>P.</th><th></th></tr>
+    {% for pa in p.aufgaben %}
+    <tr><td>{{ pa.position }}</td>
+        <td><a href="{{ url_for('lp.aufgabe_bearbeiten', aufgabe_id=pa.aufgabe.id) }}">{{ pa.aufgabe.titel }}</a><br>
+            {% for l in pa.aufgabe.lernziele %}<span class="tag">{{ l.label }}</span>{% endfor %}</td>
+        <td>K{{ pa.aufgabe.k_stufe }}</td><td>{{ pa.aufgabe.punkte|pkt }}</td>
+        <td style="white-space: nowrap">
+          {% for aktion, sym in [('hoch', '↑'), ('runter', '↓'), ('entfernen', '✕')] %}
+          <form method="post" class="inline">{{ csrf() }}<input type="hidden" name="pa_id" value="{{ pa.id }}">
+            <button class="btn klein sek" name="aktion" value="{{ aktion }}">{{ sym }}</button></form>
+          {% endfor %}
+        </td></tr>
+    {% endfor %}
+  </table>
+  <form method="post" class="aktionen">{{ csrf() }}
+    <select name="aufgabe_id" style="max-width: 380px">
+      {% for a in weitere %}<option value="{{ a.id }}">{{ a.titel }} ({{ a.punkte|pkt }} P., K{{ a.k_stufe }})</option>{% endfor %}
+    </select>
+    <button class="btn klein" name="aktion" value="hinzufuegen" {{ 'disabled' if not weitere }}>Aufgabe hinzufügen</button>
+  </form>
+</div>
+<div>
+  <h2>Abdeckung der Ziele</h2>
+  {% if offen %}
+    <p class="luecke">Nicht abgedeckt ({{ offen|length }}):</p>
+    <ul>{% for z in offen %}<li>{{ z }}</li>{% endfor %}</ul>
+    <p class="muted">Mögliche Gründe: Es gibt noch keine Prüfungsaufgabe dazu (→ Lernziele-Übersicht), die passende Aufgabe wurde von der Klasse bereits geübt und deshalb ausgeschlossen, oder das Punktebudget reichte nicht. Du kannst links manuell Aufgaben hinzufügen.</p>
+  {% endif %}
+  {% if abgedeckt %}
+    <p><strong>Abgedeckt ({{ abgedeckt|length }}):</strong></p>
+    <ul>{% for z in abgedeckt %}<li>{{ z }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% if not offen and not abgedeckt %}<p class="muted">Es wurden keine bestimmten Ziele vorgegeben.</p>{% endif %}
+
+  <h2>Angaben</h2>
+  <form method="post" class="card">{{ csrf() }}
+    <label class="feld">Titel <input name="titel" value="{{ p.titel }}"></label>
+    <div class="zweispaltig">
+      <label class="feld">Datum <input name="datum" value="{{ p.datum }}"></label>
+      <label class="feld">Dauer (min) <input type="number" name="dauer_min" value="{{ p.dauer_min or '' }}"></label>
+    </div>
+    <label class="feld">Hinweise <textarea name="hinweise" rows="3">{{ p.hinweise }}</textarea></label>
+    <button class="btn klein" name="aktion" value="meta">Speichern</button>
+  </form>
+  <form method="post" onsubmit="return confirm('Prüfung löschen?')">{{ csrf() }}
+    <button class="link" name="aktion" value="loeschen">Prüfung löschen</button></form>
+</div>
+</div>
+{% endblock %}

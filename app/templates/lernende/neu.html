@@ -1,0 +1,19 @@
+{% extends "base.html" %}{% from "_macros.html" import csrf, auswahl %}
+{% block title %}Neues Übungsblatt{% endblock %}
+{% block content %}
+<h1>Neues Übungsblatt zusammenstellen</h1>
+<form method="post">{{ csrf() }}
+  <p class="muted">Wähle aus, was du üben möchtest. Innerhalb eines Reiters reicht eine Übereinstimmung,
+    zwischen den Reitern müssen alle zutreffen (z. B. Thema «qPCR» <em>und</em> Kompetenzziel «a.2.3» = Rechenaufgaben zur qPCR).</p>
+  {{ auswahl(themen, bereiche) }}
+  <div class="card">
+    <div class="zweispaltig">
+      <label class="feld">Anzahl Aufgaben <input type="number" name="anzahl" value="5" min="1" max="25"></label>
+      <label class="feld">Titel (optional) <input name="titel" placeholder="z. B. Repetition qPCR-Rechnungen"></label>
+    </div>
+    <p class="trefferzahl" data-trefferzahl="{{ url_for('lernende.anzahl') }}"></p>
+    <button class="btn">Übungsblatt erstellen</button>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='auswahl.js') }}"></script>{% endblock %}

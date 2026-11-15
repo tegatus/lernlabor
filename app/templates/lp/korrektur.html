@@ -1,0 +1,78 @@
+{% extends "base.html" %}{% from "_macros.html" import csrf, status_badge %}
+{% block title %}Korrektur {{ blatt.code }}{% endblock %}
+{% block content %}
+<h1>Korrektur: {{ blatt.titel }} <span class="code">{{ blatt.code }}</span> {{ status_badge(blatt.status) }}</h1>
+<p class="muted">
+  <a href="{{ url_for('lp.lernende_profil', user_id=blatt.lernende.id) }}">{{ blatt.lernende.anzeigename }}</a>
+  · {{ blatt.auswahl }} · erstellt {{ blatt.erstellt_am|datum }}
+  · <a href="{{ url_for('lernende.blatt_pdf', blatt_id=blatt.id, art='aufgaben') }}" target="_blank">Aufgabenblatt</a>
+  · <a href="{{ url_for('lernende.blatt_pdf', blatt_id=blatt.id, art='loesung') }}" target="_blank">Lösungsblatt</a>
+  {% if blatt.status == 'korrigiert' %}· <a href="{{ url_for('lernende.blatt_pdf', blatt_id=blatt.id, art='rueckmeldung') }}" target="_blank">Rückmeldung (PDF)</a>{% endif %}
+</p>
+
+{% set abgabe = blatt.letzte_abgabe %}
+<div class="korr-layout" id="korrektur" data-url="{{ url_for('lp.korrektur_speichern', blatt_id=blatt.id) }}">
+  <div>
+    {% if abgabe %}
+    <div class="werkzeuge" id="werkzeuge">
+      <button data-tool="stift" class="aktiv" title="Freihand (P)">✏️ Stift</button>
+      <button data-tool="marker" title="Textmarker (M)">🖍 Marker</button>
+      <button data-tool="text" title="Text einfügen (T)">T Text</button>
+      <button data-tool="haken" title="Haken (H)">✓</button>
+      <button data-tool="kreuz" title="Kreuz (X)">✗</button>
+      <button data-tool="kreis" title="Kreis aufziehen (K)">◯</button>
+      <span style="width: .6rem"></span>
+      <button class="farbe aktiv" data-farbe="#d32f2f" style="background:#d32f2f" title="Rot"></button>
+      <button class="farbe" data-farbe="#2e7d32" style="background:#2e7d32" title="Grün"></button>
+      <button class="farbe" data-farbe="#1565c0" style="background:#1565c0" title="Blau"></button>
+      <button class="farbe" data-farbe="#ef6c00" style="background:#ef6c00" title="Orange"></button>
+      <span style="width: .6rem"></span>
+      <button id="undo" title="Rückgängig (Ctrl+Z)">↶ Rückgängig</button>
+    </div>
+    <p class="muted">Abgabe vom {{ abgabe.hochgeladen_am|datum(true) }} · {{ abgabe.seiten|length }} Seite(n)
+      {% if blatt.abgaben|length > 1 %}· frühere Abgaben: {{ blatt.abgaben|length - 1 }}{% endif %}</p>
+    {% for s in abgabe.seiten %}
+      <div class="seite" data-seite="{{ s.id }}" data-src="{{ url_for('lernende.seite_bild', seite_id=s.id) }}"
+           data-annotationen="{{ s.annotationen or '[]' }}">
+        <span class="nr">Seite {{ s.nr }}</span>
+        <canvas></canvas>
+      </div>
+    {% endfor %}
+    {% else %}
+      <div class="card">Für dieses Blatt wurde noch nichts hochgeladen. Das Lösungsblatt ist oben verlinkt.</div>
+    {% endif %}
+  </div>
+
+  <aside class="seitenleiste card" id="bewertung">
+    <h3 style="margin-top:0">Bewertung</h3>
+    <label class="muted"><input type="checkbox" id="loesung-anzeigen"> Musterlösungen einblenden</label>
+    <div id="aufgabenliste" style="margin-top:.6rem">
+    {% for ba in blatt.aufgaben %}
+      <div class="aufgabe" data-id="{{ ba.id }}">
+        <div class="punktzeile">
+          <strong>{{ ba.position }}. {{ ba.aufgabe.titel }}</strong>
+          <input type="text" inputmode="decimal" class="punkte" value="{{ '' if ba.punkte_erreicht is none else ba.punkte_erreicht|pkt }}"
+                 placeholder="/{{ ba.aufgabe.punkte|pkt }}" data-max="{{ ba.aufgabe.punkte }}" title="max. {{ ba.aufgabe.punkte|pkt }}">
+        </div>
+        <div class="loesungstext">{{ ba.aufgabe.loesung|markup }}</div>
+        <textarea class="kommentar" rows="2" placeholder="Kommentar zu Aufgabe {{ ba.position }}">{{ ba.kommentar or '' }}</textarea>
+      </div>
+    {% endfor %}
+    </div>
+    <p><strong>Total: <span id="total">–</span> / {{ blatt.max_punkte|pkt }}</strong></p>
+    <label class="feld">Gesamtkommentar
+      <textarea id="gesamtkommentar" class="kommentar" rows="4">{{ blatt.gesamtkommentar or '' }}</textarea></label>
+    <label><input type="checkbox" id="loesung-freigeben" {{ 'checked' if blatt.loesung_freigegeben }}> Musterlösung für Lernende freigeben</label>
+    <div class="aktionen">
+      <button class="btn sek" id="speichern">Zwischenspeichern</button>
+      <button class="btn" id="abschliessen">Korrektur abschliessen &amp; senden</button>
+    </div>
+    <p id="meldung" class="muted"></p>
+    {% if blatt.status == 'korrigiert' %}
+      <form method="post" action="{{ url_for('lp.korrektur_oeffnen', blatt_id=blatt.id) }}">{{ csrf() }}
+        <button class="link">Korrektur wieder öffnen (für Lernende ausblenden)</button></form>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='korrektur.js') }}"></script>{% endblock %}

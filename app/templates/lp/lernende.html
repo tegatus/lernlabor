@@ -1,0 +1,34 @@
+{% extends "base.html" %}{% from "_macros.html" import csrf, status_badge %}
+{% block title %}{{ u.anzeigename }}{% endblock %}
+{% block content %}
+<h1>{{ u.anzeigename }} <span class="muted">({{ u.benutzername }}, {{ u.klasse.name }})</span></h1>
+<div class="aktionen">
+  <form method="post" action="{{ url_for('lp.lernende_passwort', user_id=u.id) }}" onsubmit="return confirm('Neues Passwort erzeugen?')">{{ csrf() }}
+    <button class="btn sek klein">Passwort zurücksetzen</button></form>
+</div>
+
+{% if stand %}
+<h2>Lernstand nach Thema (korrigierte Aufgaben)</h2>
+<div class="grid">
+{% for thema, (e, m) in stand|dictsort %}
+  <div class="card"><strong>{{ thema }}</strong> – {{ e|pkt }} / {{ m|pkt }} P. ({{ (100 * e / m)|round|int if m else 0 }} %)
+    <div class="balken"><div style="width: {{ (100 * e / m) if m else 0 }}%"></div></div></div>
+{% endfor %}
+</div>
+{% endif %}
+
+<h2>Übungsblätter, Lösungen &amp; Abgaben</h2>
+<table class="tab">
+  <tr><th>Blatt</th><th>Titel / Auswahl</th><th>Erstellt</th><th>Status</th><th>Punkte</th><th>Dokumente</th></tr>
+  {% for b in blaetter %}
+  <tr><td><span class="code">{{ b.code }}</span></td>
+      <td>{{ b.titel }}<br><span class="muted">{{ b.auswahl }}</span></td>
+      <td>{{ b.erstellt_am|datum }}</td><td>{{ status_badge(b.status) }}</td>
+      <td>{{ b.erreichte_punkte|pkt }} / {{ b.max_punkte|pkt }}</td>
+      <td><a href="{{ url_for('lernende.blatt_pdf', blatt_id=b.id, art='aufgaben') }}" target="_blank">Aufgaben</a> ·
+          <a href="{{ url_for('lernende.blatt_pdf', blatt_id=b.id, art='loesung') }}" target="_blank"><strong>Lösung</strong></a>
+          {% if b.status == 'korrigiert' %}· <a href="{{ url_for('lernende.blatt_pdf', blatt_id=b.id, art='rueckmeldung') }}" target="_blank">Rückmeldung</a>{% endif %}
+          · <a href="{{ url_for('lp.korrektur', blatt_id=b.id) }}">{{ 'Korrigieren' if b.status == 'eingereicht' else 'Öffnen' }}</a></td></tr>
+  {% else %}<tr><td colspan="6" class="muted">Noch keine Übungsblätter.</td></tr>{% endfor %}
+</table>
+{% endblock %}

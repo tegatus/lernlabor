@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% from "_macros.html" import csrf %}
+{% block title %}Klassen{% endblock %}
+{% block content %}
+<h1>Meine Klassen</h1>
+<table class="tab">
+  <tr><th>Klasse</th><th>Lernende</th></tr>
+  {% for k in klassen %}
+  <tr><td><a href="{{ url_for('lp.klasse', klasse_id=k.id) }}">{{ k.name }}</a></td><td>{{ k.lernende|length }}</td></tr>
+  {% else %}<tr><td colspan="2" class="muted">Noch keine Klassen.</td></tr>{% endfor %}
+</table>
+<form method="post" class="card" style="margin-top:1rem">{{ csrf() }}
+  <label class="feld">Neue Klasse <input name="name" placeholder="z. B. LAB 23a" required></label>
+  <button class="btn">Klasse anlegen</button>
+</form>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}{% from "_macros.html" import status_badge %}
+{% block title %}Meine Übungen{% endblock %}
+{% block content %}
+<div class="aktionen" style="justify-content: space-between">
+  <h1>Meine Übungsblätter</h1>
+  <a class="btn" href="{{ url_for('lernende.neu') }}">+ Neues Übungsblatt erstellen</a>
+</div>
+{% if blaetter %}
+<table class="tab">
+  <tr><th>Blatt</th><th>Titel</th><th>Erstellt</th><th>Aufgaben</th><th>Status</th><th>Punkte</th><th></th></tr>
+  {% for b in blaetter %}
+  <tr>
+    <td><span class="code">{{ b.code }}</span></td>
+    <td><a href="{{ url_for('lernende.blatt', blatt_id=b.id) }}">{{ b.titel }}</a><br><span class="muted">{{ b.auswahl }}</span></td>
+    <td>{{ b.erstellt_am|datum }}</td>
+    <td>{{ b.aufgaben|length }}</td>
+    <td>{{ status_badge(b.status) }}</td>
+    <td>{% if b.status == 'korrigiert' %}{{ b.erreichte_punkte|pkt }} / {{ b.max_punkte|pkt }}{% endif %}</td>
+    <td><a class="btn klein sek" href="{{ url_for('lernende.blatt_pdf', blatt_id=b.id, art='aufgaben') }}" target="_blank">PDF</a></td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<div class="card">
+  <p>Du hast noch keine Übungsblätter. So funktioniert es:</p>
+  <ol>
+    <li>Wähle Themen, Lernziele oder Kompetenzziele aus – die App stellt dir passende Aufgaben zusammen.</li>
+    <li>Drucke das PDF aus und löse die Aufgaben von Hand.</li>
+    <li>Fotografiere die Seiten und lade sie hoch.</li>
+    <li>Deine Lehrperson korrigiert online – du siehst hier die Rückmeldung.</li>
+  </ol>
+  <a class="btn" href="{{ url_for('lernende.neu') }}">Erstes Übungsblatt erstellen</a>
+</div>
+{% endif %}
+{% endblock %}

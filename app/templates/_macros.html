@@ -1,0 +1,74 @@
+{% macro csrf() %}<input type="hidden" name="_csrf" value="{{ csrf_token() }}">{% endmacro %}
+
+{% macro status_badge(s) %}
+  {% set txt = {'offen': 'zu bearbeiten', 'eingereicht': 'eingereicht', 'korrigiert': 'korrigiert'} %}
+  <span class="badge st-{{ s }}">{{ txt.get(s, s) }}</span>
+{% endmacro %}
+
+{#
+  Auswahl-Widget: Themen, konkrete Lernziele (gruppiert nach Thema), BiVo-Leistungsziele (gruppiert nach
+  Bereich / Handlungskompetenz) und K-Stufen. sel_* sind Mengen bereits gewählter Werte (für Formulare).
+#}
+{% macro auswahl(themen, bereiche, sel_themen=[], sel_lernziele=[], sel_bivo=[], sel_k=[], zeige_k=true, offen=false) %}
+<div class="auswahl">
+  <div class="tabs" role="tablist">
+    <button type="button" class="tab aktiv" data-tab="t-themen">Themen</button>
+    <button type="button" class="tab" data-tab="t-lernziele">Lernziele</button>
+    <button type="button" class="tab" data-tab="t-bivo">Kompetenzziele BiVo</button>
+  </div>
+
+  <div class="tabpanel aktiv" id="t-themen">
+    <div class="chips">
+    {% for t in themen %}
+      <label class="chip"><input type="checkbox" name="thema" value="{{ t.id }}" {{ 'checked' if t.id in sel_themen }}> {{ t.name }}</label>
+    {% else %}<p class="muted">Noch keine Themen erfasst.</p>{% endfor %}
+    </div>
+  </div>
+
+  <div class="tabpanel" id="t-lernziele">
+    {% for t in themen if t.lernziele %}
+      <details {{ 'open' if offen or t.lernziele|selectattr('id', 'in', sel_lernziele)|list }}>
+        <summary>{{ t.name }} <span class="muted">({{ t.lernziele|length }} Lernziele)</span>
+          <button type="button" class="link alle" data-scope="lz-{{ t.id }}">alle</button></summary>
+        <div class="liste" id="lz-{{ t.id }}">
+        {% for lz in t.lernziele %}
+          <label class="zeile"><input type="checkbox" name="lernziel" value="{{ lz.id }}" {{ 'checked' if lz.id in sel_lernziele }}>
+            <span class="code">{{ lz.kuerzel }}</span> {{ lz.text }}
+            <span class="muted">({{ lz.leistungsziele|map(attribute='code')|join(', ') }}{% if lz.k_stufe %}, K{{ lz.k_stufe }}{% endif %})</span>
+          </label>
+        {% endfor %}
+        </div>
+      </details>
+    {% else %}<p class="muted">Noch keine konkreten Lernziele importiert.</p>{% endfor %}
+  </div>
+
+  <div class="tabpanel" id="t-bivo">
+    {% for b in bereiche %}
+      <details {{ 'open' if b.code in sel_bivo|map('first')|list }}>
+        <summary><span class="code">{{ b.code }}</span> {{ b.titel }}</summary>
+        {% for hk in b.handlungskompetenzen %}
+          <div class="hk">
+            <div class="hk-titel"><span class="code">{{ hk.code }}</span> {{ hk.titel }}
+              <button type="button" class="link alle" data-scope="hk-{{ hk.code|replace('.', '-') }}">alle</button></div>
+            <div class="liste" id="hk-{{ hk.code|replace('.', '-') }}">
+            {% for l in hk.leistungsziele %}
+              <label class="zeile"><input type="checkbox" name="bivo" value="{{ l.code }}" {{ 'checked' if l.code in sel_bivo }}>
+                <span class="code">{{ l.code }}</span> {{ l.text }} <span class="muted">K{{ l.k_stufe }}</span></label>
+            {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+      </details>
+    {% endfor %}
+  </div>
+
+  {% if zeige_k %}
+  <div class="k-filter">
+    <span>K-Stufen (optional):</span>
+    {% for k in range(1, 7) %}
+      <label class="chip klein"><input type="checkbox" name="k" value="{{ k }}" {{ 'checked' if k in sel_k }}> K{{ k }}</label>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endmacro %}

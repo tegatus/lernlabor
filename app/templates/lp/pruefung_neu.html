@@ -1,0 +1,31 @@
+{% extends "base.html" %}{% from "_macros.html" import csrf, auswahl %}
+{% block title %}Prüfung generieren{% endblock %}
+{% block content %}
+<h1>Prüfung generieren</h1>
+<form method="post">{{ csrf() }}
+<div class="card">
+  <div class="zweispaltig">
+    <label class="feld">Titel <input name="titel" placeholder="z. B. Prüfung Molekularbiologie 1 – qPCR" required></label>
+    <label class="feld">Klasse <select name="klasse_id"><option value="">–</option>
+      {% for k in klassen %}<option value="{{ k.id }}">{{ k.name }}</option>{% endfor %}</select></label>
+  </div>
+  <div class="vierspaltig">
+    <label class="feld">Datum <input name="datum" placeholder="12.03.2027"></label>
+    <label class="feld">Dauer (min) <input type="number" name="dauer_min" value="45"></label>
+    <label class="feld">Ziel-Punktzahl <input type="number" name="ziel_punkte" value="30" step="0.5"></label>
+    <label class="feld">Max. Anzahl Aufgaben <input type="number" name="max_aufgaben" placeholder="unbegrenzt"></label>
+  </div>
+  <label class="feld">Hinweise auf dem Deckblatt
+    <textarea name="hinweise" rows="3">Erlaubte Hilfsmittel: Taschenrechner. Rechenwege müssen nachvollziehbar sein.</textarea></label>
+  <label><input type="checkbox" name="nur_pruefung" value="1"> Nur Aufgaben mit Verwendung «Nur Prüfung (geheim)»</label><br>
+  <label><input type="checkbox" name="ohne_geuebte" value="1" checked> Aufgaben ausschliessen, die Lernende der gewählten Klasse schon geübt haben</label>
+</div>
+<h3>Umfang &amp; abzudeckende Ziele</h3>
+<p class="muted"><strong>Themen</strong> begrenzen den Aufgabenpool. Gewählte <strong>Lernziele</strong> und <strong>BiVo-Kompetenzziele</strong>
+  werden möglichst alle abgedeckt (je mindestens eine Aufgabe); danach wird bis zur Ziel-Punktzahl aufgefüllt.</p>
+{{ auswahl(themen, bereiche) }}
+<p class="trefferzahl" data-trefferzahl="{{ url_for('lernende.anzahl') }}" data-pruefung="1"></p>
+<button class="btn">Prüfung zusammenstellen</button>
+</form>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='auswahl.js') }}"></script>{% endblock %}

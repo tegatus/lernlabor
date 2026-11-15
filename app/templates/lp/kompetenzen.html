@@ -1,0 +1,24 @@
+{% extends "base.html" %}{% from "_macros.html" import csrf %}
+{% block title %}Kompetenzziele BiVo{% endblock %}
+{% block content %}
+<h1>Kompetenzziele (Bildungsverordnung)</h1>
+<p class="muted">Zahl = aktive Aufgaben, die das Leistungsziel abdecken.</p>
+{% for b in bereiche %}
+<details class="card" {{ 'open' if loop.first }}>
+  <summary><span class="code">{{ b.code }}</span> {{ b.titel }}</summary>
+  {% for hk in b.handlungskompetenzen %}
+    <h3><span class="code">{{ hk.code }}</span> {{ hk.titel }}</h3>
+    <table class="tab">
+    {% for l in hk.leistungsziele %}
+      <tr><td style="width:5rem"><span class="code">{{ l.code }}</span></td><td>{{ l.text }}</td><td style="width:3rem">K{{ l.k_stufe }}</td>
+          <td style="width:3rem" class="{{ 'luecke' if not zaehler[l.code] }}">{{ zaehler[l.code] }}</td></tr>
+    {% endfor %}
+    </table>
+  {% endfor %}
+</details>
+{% endfor %}
+<form method="post" enctype="multipart/form-data" class="card">{{ csrf() }}
+  <strong>Kompetenzliste neu einlesen</strong> (Excel: Spalte A Bereich, Spalte B Text mit Code, Spalte C K-Stufe; bestehende Codes werden aktualisiert)
+  <div class="aktionen"><input type="file" name="datei" accept=".xlsx" required><button class="btn klein">Importieren</button></div>
+</form>
+{% endblock %}

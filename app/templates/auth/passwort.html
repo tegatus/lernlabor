@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% from "_macros.html" import csrf %}
+{% block title %}Passwort ändern{% endblock %}
+{% block content %}
+<div class="card login">
+  <h1>Passwort ändern</h1>
+  <form method="post">{{ csrf() }}
+    <label class="feld">Bisheriges Passwort <input name="alt" type="password" autocomplete="current-password" required></label>
+    <label class="feld">Neues Passwort (min. 8 Zeichen) <input name="neu" type="password" autocomplete="new-password" required minlength="8"></label>
+    <label class="feld">Neues Passwort wiederholen <input name="neu2" type="password" autocomplete="new-password" required></label>
+    <button class="btn">Speichern</button>
+  </form>
+</div>
+{% endblock %}
