@@ -25,6 +25,8 @@ from reportlab.pdfgen import canvas as rl_canvas
 from reportlab.platypus import (CondPageBreak, Flowable, Image, KeepTogether, PageBreak, Paragraph,
                                 SimpleDocTemplate, Spacer, Table, TableStyle)
 
+from .markup import tabellen_abtrennen
+
 FONT_DIR = os.path.join(os.path.dirname(__file__), "static", "fonts")
 _fonts_ok = False
 
@@ -96,7 +98,7 @@ def inline(text):
 def markup_flowables(text, st, width=CONTENT_W):
     """Wandelt die einfache Auszeichnung in eine Liste von Flowables um."""
     out = []
-    blocks = re.split(r"\n\s*\n", (text or "").strip().replace("\r\n", "\n"))
+    blocks = re.split(r"\n\s*\n", tabellen_abtrennen(text).strip())
     for block in blocks:
         lines = [l.rstrip() for l in block.split("\n") if l.strip()]
         if not lines:

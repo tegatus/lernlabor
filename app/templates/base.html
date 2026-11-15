@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>{% block title %}LernLabor{% endblock %} · LernLabor</title>
+  <script>
+    // Theme vor dem ersten Rendern setzen (kein Aufblitzen): gespeicherte Wahl, sonst Systemeinstellung
+    (function () {
+      var t = null;
+      try { t = localStorage.getItem('theme'); } catch (e) {}
+      if (t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.dataset.theme = t;
+    })();
+  </script>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
@@ -31,7 +40,10 @@
       <button class="link">Abmelden</button>
     </form>
   </div>
+  {% else %}
+  <span class="spacer"></span>
   {% endif %}
+  <button type="button" class="theme-toggle" id="theme-toggle"></button>
 </header>
 <main>
   {% with msgs = get_flashed_messages(with_categories=true) %}
@@ -41,6 +53,28 @@
 </main>
 <script>
   window.CSRF = document.querySelector('meta[name=csrf-token]').content;
+  (function () {
+    var root = document.documentElement, btn = document.getElementById('theme-toggle');
+    var media = matchMedia('(prefers-color-scheme: dark)');
+    function zeige() {
+      var dunkel = root.dataset.theme === 'dark';
+      btn.textContent = dunkel ? '☀️' : '🌙';
+      btn.title = dunkel ? 'Helles Design' : 'Dunkles Design';
+      btn.setAttribute('aria-label', btn.title);
+    }
+    btn.addEventListener('click', function () {
+      root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+      try { localStorage.setItem('theme', root.dataset.theme); } catch (e) {}
+      zeige();
+    });
+    // Ohne eigene Wahl der Systemeinstellung folgen
+    media.addEventListener('change', function (e) {
+      var gespeichert = null;
+      try { gespeichert = localStorage.getItem('theme'); } catch (e2) {}
+      if (!gespeichert) { root.dataset.theme = e.matches ? 'dark' : 'light'; zeige(); }
+    });
+    zeige();
+  })();
 </script>
 {% block scripts %}{% endblock %}
 </body>

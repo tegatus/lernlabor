@@ -5,6 +5,13 @@ import re
 from markupsafe import Markup
 
 
+def tabellen_abtrennen(text):
+    """Leerzeile zwischen Tabellen- und Textzeilen einfügen, damit Tabellen eigene Blöcke bilden."""
+    text = (text or "").replace("\r\n", "\n")
+    text = re.sub(r"(?m)^([ \t]*[^|\s].*)\n(?=[ \t]*\|)", r"\1\n\n", text)
+    return re.sub(r"(?m)^([ \t]*\|.*)\n(?=[ \t]*[^|\s])", r"\1\n\n", text)
+
+
 def _inline(t):
     t = html.escape(t, quote=False)
     t = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", t)
@@ -16,7 +23,7 @@ def _inline(t):
 
 def markup_html(text):
     out = []
-    for block in re.split(r"\n\s*\n", (text or "").strip().replace("\r\n", "\n")):
+    for block in re.split(r"\n\s*\n", tabellen_abtrennen(text).strip()):
         lines = [l.strip() for l in block.split("\n") if l.strip()]
         if not lines:
             continue
