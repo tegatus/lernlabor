@@ -1,4 +1,4 @@
-# LaborÜben – Übungsplattform für Laborant/innen EFZ Biologie
+# LernLabor – Übungsplattform für Laborant/innen EFZ Biologie
 
 Web-App für die Berufsfachschule: Lernende stellen sich aus einer Aufgabendatenbank Übungsblätter
 zusammen, drucken sie aus, lösen sie von Hand, laden Fotos hoch und erhalten von der Lehrperson eine
@@ -61,7 +61,7 @@ Tests: `.venv/bin/python -m pytest`
 | `app/static/korrektur.js` | Annotationswerkzeug (Canvas, Pointer Events) |
 | `app/seed_data/` | Ausgangsdaten (Excel, Lernziele, Beispielaufgaben) |
 
-Daten liegen in `instance/` (SQLite-Datenbank `laborueben.sqlite`, Uploads in `instance/dateien/`).
+Daten liegen in `instance/` (SQLite-Datenbank `lernlabor.sqlite`, Uploads in `instance/dateien/`).
 Für ein Backup genügt es, diesen Ordner zu sichern.
 
 ## Betrieb an der Schule (Hinweise)

@@ -28,7 +28,7 @@ def create_app(config=None):
     app.config.update(
         SECRET_KEY=os.environ.get("SECRET_KEY") or _persistent_secret(app.instance_path),
         SQLALCHEMY_DATABASE_URI=os.environ.get("DATABASE_URL")
-        or "sqlite:///" + os.path.join(app.instance_path, "laborueben.sqlite"),
+        or "sqlite:///" + os.path.join(app.instance_path, "lernlabor.sqlite"),
         UPLOAD_DIR=os.environ.get("UPLOAD_DIR") or os.path.join(app.instance_path, "dateien"),
         MAX_CONTENT_LENGTH=60 * 1024 * 1024,
         SESSION_COOKIE_HTTPONLY=True,
