@@ -23,7 +23,7 @@
       <p class="muted">Abgabe vom {{ ab.hochgeladen_am|datum(true) }}: {{ ab.seiten|length }} Seite(n)</p>
     {% endfor %}
     {% if not blatt.abgaben %}
-      <form method="post" action="{{ url_for('lernende.loeschen', blatt_id=blatt.id) }}" onsubmit="return confirm('Übungsblatt wirklich löschen?')">{{ csrf() }}
+      <form method="post" action="{{ url_for('lernende.loeschen', blatt_id=blatt.id) }}" data-bestaetigen="Übungsblatt wirklich löschen?">{{ csrf() }}
         <button class="link">Blatt löschen</button></form>
     {% endif %}
   </div>

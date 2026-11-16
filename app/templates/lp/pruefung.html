@@ -57,7 +57,7 @@
     <label class="feld">Hinweise <textarea name="hinweise" rows="3">{{ p.hinweise }}</textarea></label>
     <button class="btn klein" name="aktion" value="meta">Speichern</button>
   </form>
-  <form method="post" onsubmit="return confirm('Prüfung löschen?')">{{ csrf() }}
+  <form method="post" data-bestaetigen="Prüfung löschen?">{{ csrf() }}
     <button class="link" name="aktion" value="loeschen">Prüfung löschen</button></form>
 </div>
 </div>

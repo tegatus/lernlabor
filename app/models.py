@@ -39,6 +39,7 @@ class User(UserMixin, db.Model):
     klasse_id = db.Column(db.Integer, db.ForeignKey("klasse.id"))
     klasse = db.relationship("Klasse", foreign_keys=[klasse_id], back_populates="lernende")
     aktiv = db.Column(db.Boolean, default=True, nullable=False)
+    passwort_aendern = db.Column(db.Boolean, default=False, nullable=False)  # nach generiertem Startpasswort
 
     def set_passwort(self, pw):
         self.passwort_hash = generate_password_hash(pw)
@@ -324,6 +325,15 @@ class PruefungAufgabe(db.Model):
     seed = db.Column(db.Integer)
 
 
+class LoginVersuch(db.Model):
+    """Anmeldeversuche für die Sperre bei wiederholten Fehlversuchen (werden nach einem Tag gelöscht)."""
+    id = db.Column(db.Integer, primary_key=True)
+    zeit = db.Column(db.DateTime, default=now, index=True)
+    benutzername = db.Column(db.String(80), index=True)
+    ip = db.Column(db.String(64), index=True)
+    erfolgreich = db.Column(db.Boolean, default=False, nullable=False)
+
+
 class KiProtokoll(db.Model):
     """Verbrauch des KI-Assistenten (für Transparenz und Kostenkontrolle). Enthält keine Inhalte."""
     id = db.Column(db.Integer, primary_key=True)
@@ -343,6 +353,7 @@ SPALTEN_NACHTRAG = [  # (Tabelle, Spalte, DDL) – für bestehende Datenbanken o
     ("aufgabe", "daten", "TEXT NOT NULL DEFAULT '{}'"),
     ("blatt_aufgabe", "seed", "INTEGER"),
     ("pruefung_aufgabe", "seed", "INTEGER"),
+    ("user", "passwort_aendern", "BOOLEAN NOT NULL DEFAULT FALSE"),
 ]
 
 
@@ -351,5 +362,6 @@ def spalten_ergaenzen():
     insp = db.inspect(db.engine)
     for tabelle, spalte, ddl in SPALTEN_NACHTRAG:
         if tabelle in insp.get_table_names() and spalte not in {c["name"] for c in insp.get_columns(tabelle)}:
-            db.session.execute(db.text(f"ALTER TABLE {tabelle} ADD COLUMN {spalte} {ddl}"))
+            q = db.engine.dialect.identifier_preparer.quote  # «user» ist in PostgreSQL reserviert
+            db.session.execute(db.text(f"ALTER TABLE {q(tabelle)} ADD COLUMN {q(spalte)} {ddl}"))
     db.session.commit()

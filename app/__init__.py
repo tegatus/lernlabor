@@ -1,7 +1,7 @@
 import os
 import secrets
 
-from flask import Flask, abort, request, session
+from flask import Flask
 from flask_login import LoginManager
 
 from .models import User, db
@@ -16,12 +16,6 @@ def load_user(uid):
     return db.session.get(User, int(uid))
 
 
-def csrf_token():
-    if "_csrf" not in session:
-        session["_csrf"] = secrets.token_urlsafe(32)
-    return session["_csrf"]
-
-
 def create_app(config=None):
     app = Flask(__name__, instance_relative_config=True)
     os.makedirs(app.instance_path, exist_ok=True)
@@ -31,8 +25,6 @@ def create_app(config=None):
         or "sqlite:///" + os.path.join(app.instance_path, "lernlabor.sqlite"),
         UPLOAD_DIR=os.environ.get("UPLOAD_DIR") or os.path.join(app.instance_path, "dateien"),
         MAX_CONTENT_LENGTH=60 * 1024 * 1024,
-        SESSION_COOKIE_HTTPONLY=True,
-        SESSION_COOKIE_SAMESITE="Lax",
     )
     if config:
         app.config.update(config)
@@ -41,12 +33,8 @@ def create_app(config=None):
     db.init_app(app)
     login_manager.init_app(app)
 
-    @app.before_request
-    def _csrf_schutz():
-        if request.method == "POST" and not app.config.get("TESTING_NO_CSRF"):
-            token = request.form.get("_csrf") or request.headers.get("X-CSRF-Token")
-            if not token or token != session.get("_csrf"):
-                abort(400, "Ungültiges Formular-Token – bitte Seite neu laden.")
+    from .sicherheit import csrf_token, einrichten
+    einrichten(app)
 
     app.jinja_env.globals["csrf_token"] = csrf_token
 

@@ -27,7 +27,7 @@
   <form method="post" action="{{ url_for('lp.thema_bearbeiten', thema_id=t.id) }}" class="aktionen">{{ csrf() }}
     <input name="name" value="{{ t.name }}"> <input name="beschreibung" value="{{ t.beschreibung }}" placeholder="Beschreibung" size="40">
     <button class="btn klein sek">Umbenennen</button>
-    <button class="link" name="loeschen" value="1" onclick="return confirm('Thema inkl. Lernziele löschen?')">Löschen</button>
+    <button class="link" name="loeschen" value="1" data-bestaetigen="Thema inkl. Lernziele löschen?">Löschen</button>
   </form>
 </details>
 {% endfor %}

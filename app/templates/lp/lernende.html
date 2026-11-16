@@ -3,7 +3,7 @@
 {% block content %}
 <h1>{{ u.anzeigename }} <span class="muted">({{ u.benutzername }}, {{ u.klasse.name }})</span></h1>
 <div class="aktionen">
-  <form method="post" action="{{ url_for('lp.lernende_passwort', user_id=u.id) }}" onsubmit="return confirm('Neues Passwort erzeugen?')">{{ csrf() }}
+  <form method="post" action="{{ url_for('lp.lernende_passwort', user_id=u.id) }}" data-bestaetigen="Neues Passwort erzeugen?">{{ csrf() }}
     <button class="btn sek klein">Passwort zurücksetzen</button></form>
 </div>
 

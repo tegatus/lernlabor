@@ -3,6 +3,7 @@
 {% block content %}
 <div class="card login">
   <h1>Passwort ändern</h1>
+  {% if current_user.passwort_aendern %}<p class="flash info">Bitte lege jetzt ein eigenes Passwort fest. Das erhaltene Startpasswort gilt nur für die erste Anmeldung.</p>{% endif %}
   <form method="post">{{ csrf() }}
     <label class="feld">Bisheriges Passwort <input name="alt" type="password" autocomplete="current-password" required></label>
     <label class="feld">Neues Passwort (min. 8 Zeichen) <input name="neu" type="password" autocomplete="new-password" required minlength="8"></label>

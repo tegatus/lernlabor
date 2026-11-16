@@ -533,3 +533,97 @@ def test_lernziel_vorauswahl_im_editor(app):
         lz_id, th_id = lz.id, lz.thema_id
     html = lp.get(f"/lp/aufgaben/neu?lernziel={lz_id}").get_data(as_text=True)
     assert f'name="lernziel" value="{lz_id}" checked' in html and f'name="thema" value="{th_id}" checked' in html
+
+
+# ---------------------------------------------------------------- Sicherheit
+
+def test_login_sperre_nach_fehlversuchen(app):
+    c = app.test_client()
+    for _ in range(5):
+        r = c.post("/login", data={"benutzername": "lea", "passwort": "falsch"})
+        assert r.status_code == 200
+    r = c.post("/login", data={"benutzername": "lea", "passwort": "lernen-2026"})   # richtig, aber gesperrt
+    assert r.status_code == 429 and "Zu viele Fehlversuche" in r.get_data(as_text=True)
+    # anderes Konto ist nicht betroffen
+    assert "Meine Übungsblätter" in login(app.test_client(), "noah", "lernen-2026").get_data(as_text=True)
+
+
+def test_sperre_pro_ip(app):
+    c = app.test_client()
+    for i in range(20):
+        c.post("/login", data={"benutzername": f"gibtsnicht{i}", "passwort": "x"})
+    assert c.post("/login", data={"benutzername": "noah", "passwort": "lernen-2026"}).status_code == 429
+
+
+def test_sicherheits_header_und_offene_weiterleitung(app):
+    c = app.test_client()
+    r = c.get("/login")
+    csp = r.headers["Content-Security-Policy"]
+    assert "script-src 'self'" in csp and "frame-ancestors 'none'" in csp and "unsafe-inline" not in csp.split("style-src")[0]
+    assert r.headers["X-Frame-Options"] == "DENY" and r.headers["X-Content-Type-Options"] == "nosniff"
+    for boese in ["//boese.example", "https://boese.example", "/\\boese.example"]:
+        r = c.post(f"/login?next={boese}", data={"benutzername": "lea", "passwort": "lernen-2026"})
+        assert r.headers["Location"] in ("/", "http://localhost/")
+    assert app.test_client().get("/lp/").headers.get("Cache-Control") != "no-store"  # nur angemeldete Seiten
+    lp = app.test_client(); login(lp, "lp", "lp-demo-2026")
+    assert lp.get("/lp/").headers["Cache-Control"] == "no-store"
+
+
+def test_keine_inline_skripte_in_vorlagen():
+    """Die CSP verbietet Inline-Skripte – Vorlagen dürfen keine enthalten."""
+    import glob, re
+    for p in glob.glob("app/templates/**/*.html", recursive=True):
+        s = open(p, encoding="utf-8").read()
+        assert not re.search(r"<script(?![^>]*\bsrc=)[^>]*>", s), p
+        assert not re.search(r"\son(click|submit|change|load|input)=", s), p
+
+
+def test_secure_cookie_bei_https(tmp_path, monkeypatch):
+    monkeypatch.setenv("LERNLABOR_HTTPS", "1")
+    app = create_app({"SQLALCHEMY_DATABASE_URI": f"sqlite:///{tmp_path}/h.sqlite", "UPLOAD_DIR": str(tmp_path / "d")})
+    assert app.config["SESSION_COOKIE_SECURE"] is True
+    assert "Strict-Transport-Security" in app.test_client().get("/login").headers
+
+
+def test_startpasswort_muss_geaendert_werden(app):
+    lp = app.test_client(); login(lp, "lp", "lp-demo-2026")
+    with app.app_context():
+        klasse_id = User.query.filter_by(benutzername="lp").one().eigene_klassen[0].id
+    html = lp.post(f"/lp/klassen/{klasse_id}", data={"namen": "Mia Neu"}).get_data(as_text=True)
+    import re
+    pw = re.search(r'mia\.neu</td><td><span class="pw">([a-z0-9]+)</span>', html)[1]
+    c = app.test_client()
+    r = login(c, "mia.neu", pw)
+    assert "eigenes Passwort" in r.get_data(as_text=True)                  # direkt zur Passwortänderung
+    assert c.get("/lernende/neu").status_code == 302                        # alles andere gesperrt
+    assert c.post("/lernende/neu", data={"anzahl": 1}).status_code == 403
+    r = c.post("/passwort", data={"alt": pw, "neu": pw, "neu2": pw}, follow_redirects=True)
+    assert "unterscheiden" in r.get_data(as_text=True)
+    c.post("/passwort", data={"alt": pw, "neu": "neues-passwort-1", "neu2": "neues-passwort-1"})
+    assert c.get("/lernende/neu").status_code == 200
+
+
+def test_abmeldung_nach_inaktivitaet(app):
+    c = app.test_client(); login(c, "lea", "lernen-2026")
+    assert c.get("/lernende").status_code == 200
+    with c.session_transaction() as s:
+        s["zuletzt"] -= 61 * 60
+    r = c.get("/lernende")
+    assert r.status_code == 302 and "/login" in r.headers["Location"]
+    assert c.get("/lernende").status_code == 302                             # wirklich abgemeldet
+
+
+def test_csrf_konstante_zeit_und_neue_sitzung_beim_login(tmp_path):
+    app = create_app({"SQLALCHEMY_DATABASE_URI": f"sqlite:///{tmp_path}/c2.sqlite", "UPLOAD_DIR": str(tmp_path / "d")})
+    with app.app_context():
+        seed_basisdaten(); seed_demo()
+    c = app.test_client()
+    import re
+    tok = re.search(r'name="_csrf" value="([^"]+)"', c.get("/login").get_data(as_text=True))[1]
+    assert c.post("/login", data={"benutzername": "lea", "passwort": "lernen-2026", "_csrf": tok[:-1] + "x"}).status_code == 400
+    c.post("/login", data={"benutzername": "lea", "passwort": "lernen-2026", "_csrf": tok})
+    with c.session_transaction() as s:
+        assert s.get("_csrf") != tok                                           # Sitzung beim Login erneuert
+    import inspect
+    from app import sicherheit
+    assert "compare_digest" in inspect.getsource(sicherheit.csrf_pruefen)

@@ -84,11 +84,25 @@ Tests: `.venv/bin/python -m pytest`
 Daten liegen in `instance/` (SQLite-Datenbank `lernlabor.sqlite`, Uploads in `instance/dateien/`).
 Für ein Backup genügt es, diesen Ordner zu sichern.
 
+## Sicherheit
+
+- Passwörter als scrypt-Hash; Startpasswörter (Klassenliste, Zurücksetzen) müssen bei der ersten Anmeldung geändert werden.
+- Login-Sperre: nach 5 Fehlversuchen pro Konto bzw. 20 pro IP-Adresse 15 Minuten gesperrt.
+- Neue Sitzung bei jeder Anmeldung, Abmeldung nach 60 Minuten Inaktivität (`INAKTIV_MINUTEN`), höchstens 12 Stunden.
+- CSRF-Schutz für alle Formulare und Anfragen (Vergleich in konstanter Zeit).
+- Strenge Content-Security-Policy (keine Inline-Skripte, keine externen Quellen), Schutz vor Einbettung (Clickjacking),
+  `nosniff`, keine Speicherung persönlicher Seiten im Browser-Cache. Schriften werden lokal ausgeliefert.
+- Zugriffskontrolle serverseitig: Lehrpersonen sehen nur Lernende ihrer Klassen, Lernende nur eigene Blätter.
+- Uploads werden neu kodiert (entfernt u. a. GPS-Daten aus Handyfotos); Formeln werden nur über eine Whitelist ausgewertet.
+- Abhängigkeiten prüfen: `pip install pip-audit && pip-audit -r requirements.txt`
+
 ## Betrieb an der Schule (Hinweise)
 
 - Produktiv mit einem WSGI-Server hinter HTTPS betreiben, z. B. `pip install gunicorn` und
   `gunicorn -w 3 --timeout 180 -b 127.0.0.1:8000 run:app` hinter nginx/Caddy. Nie den Flask-Entwicklungsserver öffnen.
 - `SECRET_KEY` als Umgebungsvariable setzen (sonst wird einer in `instance/secret_key` erzeugt).
+- **Immer über HTTPS** betreiben und `LERNLABOR_HTTPS=1` setzen (Cookies nur über HTTPS, HSTS). Hinter nginx/Caddy
+  zusätzlich `LERNLABOR_PROXY=1`, damit IP-Adressen (Login-Sperre) und Protokoll richtig erkannt werden.
 - Für mehrere Lehrpersonen gleichzeitig: `DATABASE_URL` auf PostgreSQL zeigen lassen (SQLAlchemy, keine Codeänderung nötig).
 - Datenschutz (revDSG): Es werden Namen, Leistungen und Fotos von Handschrift gespeichert. Hosting in der Schweiz
   bzw. auf schuleigener Infrastruktur, Zugriff nur für zuständige Lehrpersonen (ist so umgesetzt: eine LP sieht nur
@@ -119,4 +133,6 @@ beim Betrieb mit gunicorn deshalb `--timeout 180` setzen.
 
 ## Lizenzen der Schriften
 
-`app/static/fonts/`: Liberation Sans (SIL Open Font License) und DejaVu Sans (freie Lizenz), siehe die LICENSE-Dateien dort.
+`app/static/fonts/`: Liberation Sans (SIL Open Font License) und DejaVu Sans (freie Lizenz) für die PDFs;
+`app/static/fonts/web/`: Inter und Source Serif 4 (beide SIL Open Font License) für die Weboberfläche.
+Siehe die LICENSE-Dateien in diesen Ordnern.

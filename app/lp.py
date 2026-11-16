@@ -94,7 +94,8 @@ def klasse(klasse_id):
             name = zeile.strip()
             if not name:
                 continue
-            u = User(benutzername=_benutzername(name), anzeigename=name, rolle="lernende", klasse=k)
+            u = User(benutzername=_benutzername(name), anzeigename=name, rolle="lernende", klasse=k,
+                     passwort_aendern=True)
             pw = _passwort()
             u.set_passwort(pw)
             db.session.add(u)
@@ -131,6 +132,7 @@ def lernende_passwort(user_id):
     pruefe_lernende(u)
     pw = _passwort()
     u.set_passwort(pw)
+    u.passwort_aendern = True
     db.session.commit()
     flash(f"Neues Passwort für {u.anzeigename} ({u.benutzername}): {pw}", "ok")
     return redirect(url_for(".lernende_profil", user_id=u.id))

@@ -1,9 +1,10 @@
 from functools import wraps
 
-from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 
 from .models import User, db
+from .sicherheit import login_gesperrt, login_protokollieren, sitzung_neu_beginnen
 
 bp = Blueprint("auth", __name__)
 
@@ -38,13 +39,21 @@ def start():
 @bp.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        u = User.query.filter_by(benutzername=request.form.get("benutzername", "").strip().lower()).first()
+        name = request.form.get("benutzername", "").strip().lower()[:80]
+        sperre = login_gesperrt(name)
+        if sperre:
+            flash(f"Zu viele Fehlversuche. Bitte in {sperre} Minuten erneut versuchen.", "fehler")
+            return render_template("auth/login.html"), 429
+        u = User.query.filter_by(benutzername=name).first()
         if u and u.aktiv and u.check_passwort(request.form.get("passwort", "")):
-            login_user(u)
+            login_protokollieren(name, True)
             ziel = request.args.get("next")
-            if not ziel or not ziel.startswith("/") or ziel.startswith("//"):
+            sitzung_neu_beginnen()
+            login_user(u)
+            if not ziel or not ziel.startswith("/") or ziel.startswith("//") or "\\" in ziel:
                 ziel = url_for("auth.start")
             return redirect(ziel)
+        login_protokollieren(name, False)
         flash("Benutzername oder Passwort falsch.", "fehler")
     return render_template("auth/login.html")
 
@@ -52,6 +61,7 @@ def login():
 @bp.route("/logout", methods=["POST"])
 def logout():
     logout_user()
+    session.clear()
     return redirect(url_for("auth.login"))
 
 
@@ -66,8 +76,11 @@ def passwort():
             flash("Das neue Passwort muss mindestens 8 Zeichen lang sein.", "fehler")
         elif neu != neu2:
             flash("Die beiden neuen Passwörter stimmen nicht überein.", "fehler")
+        elif neu == alt:
+            flash("Das neue Passwort muss sich vom bisherigen unterscheiden.", "fehler")
         else:
             current_user.set_passwort(neu)
+            current_user.passwort_aendern = False
             db.session.commit()
             flash("Passwort geändert.", "ok")
             return redirect(url_for("auth.start"))
