@@ -1,0 +1,4 @@
+# Zusätzliche Pakete für den Serverbetrieb (zusätzlich zu ../requirements.txt)
+-r ../requirements.txt
+gunicorn>=23
+psycopg[binary]>=3.2

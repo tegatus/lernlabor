@@ -17,7 +17,8 @@ def load_user(uid):
 
 
 def create_app(config=None):
-    app = Flask(__name__, instance_relative_config=True)
+    # LERNLABOR_INSTANCE: Ordner für Datenbank (SQLite), Secret Key usw. – im Betrieb ausserhalb des Codes
+    app = Flask(__name__, instance_relative_config=True, instance_path=os.environ.get("LERNLABOR_INSTANCE") or None)
     os.makedirs(app.instance_path, exist_ok=True)
     app.config.update(
         SECRET_KEY=os.environ.get("SECRET_KEY") or _persistent_secret(app.instance_path),

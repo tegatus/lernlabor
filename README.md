@@ -96,6 +96,12 @@ Für ein Backup genügt es, diesen Ordner zu sichern.
 - Uploads werden neu kodiert (entfernt u. a. GPS-Daten aus Handyfotos); Formeln werden nur über eine Whitelist ausgewertet.
 - Abhängigkeiten prüfen: `pip install pip-audit && pip-audit -r requirements.txt`
 
+## Installation auf einem Server
+
+Für Ubuntu (26.04/24.04) mit PostgreSQL, nginx und HTTPS gibt es ein Installationspaket in `deploy/`:
+**[deploy/INSTALLATION.md](deploy/INSTALLATION.md)** – Installation in drei Befehlen, Domain später per Skript,
+Updates, tägliche Sicherungen und Wiederherstellung.
+
 ## Betrieb an der Schule (Hinweise)
 
 - Produktiv mit einem WSGI-Server hinter HTTPS betreiben, z. B. `pip install gunicorn` und

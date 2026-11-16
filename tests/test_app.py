@@ -1,4 +1,5 @@
 import base64
+import os
 import io
 import json
 
@@ -15,12 +16,21 @@ from app.selection import stelle_pruefung_zusammen
 
 @pytest.fixture
 def app(tmp_path):
-    app = create_app({"SQLALCHEMY_DATABASE_URI": f"sqlite:///{tmp_path}/t.sqlite",
+    # Standard: frische SQLite-Datei pro Test. Mit TEST_DATABASE_URL=postgresql+psycopg://… laufen die Tests
+    # gegen PostgreSQL (die Datenbank wird pro Test geleert).
+    url = os.environ.get("TEST_DATABASE_URL") or f"sqlite:///{tmp_path}/t.sqlite"
+    app = create_app({"SQLALCHEMY_DATABASE_URI": url,
                       "UPLOAD_DIR": str(tmp_path / "dateien"), "TESTING": True, "TESTING_NO_CSRF": True})
     with app.app_context():
+        if url.startswith("postgresql"):
+            db.drop_all()
+            db.create_all()
         seed_basisdaten()
         seed_demo()
     yield app
+    with app.app_context():
+        db.session.remove()
+        db.engine.dispose()
 
 
 def login(client, name, pw):

@@ -36,7 +36,9 @@ class User(UserMixin, db.Model):
     anzeigename = db.Column(db.String(120), nullable=False)
     passwort_hash = db.Column(db.String(255), nullable=False)
     rolle = db.Column(db.String(20), nullable=False, default="lernende")  # "lp" | "lernende"
-    klasse_id = db.Column(db.Integer, db.ForeignKey("klasse.id"))
+    # Klasse ↔ Lehrperson verweisen gegenseitig aufeinander: benannte, nachträglich angelegte Fremdschlüssel,
+    # damit PostgreSQL die Tabellen in beliebiger Reihenfolge anlegen und löschen kann
+    klasse_id = db.Column(db.Integer, db.ForeignKey("klasse.id", use_alter=True, name="fk_user_klasse"))
     klasse = db.relationship("Klasse", foreign_keys=[klasse_id], back_populates="lernende")
     aktiv = db.Column(db.Boolean, default=True, nullable=False)
     passwort_aendern = db.Column(db.Boolean, default=False, nullable=False)  # nach generiertem Startpasswort
@@ -300,7 +302,9 @@ class Pruefung(db.Model):
     titel = db.Column(db.String(200), nullable=False)
     lp_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     lp = db.relationship("User")
-    klasse_id = db.Column(db.Integer, db.ForeignKey("klasse.id"))
+    # Klasse ↔ Lehrperson verweisen gegenseitig aufeinander: benannte, nachträglich angelegte Fremdschlüssel,
+    # damit PostgreSQL die Tabellen in beliebiger Reihenfolge anlegen und löschen kann
+    klasse_id = db.Column(db.Integer, db.ForeignKey("klasse.id", use_alter=True, name="fk_user_klasse"))
     klasse = db.relationship("Klasse")
     datum = db.Column(db.String(40), default="")
     dauer_min = db.Column(db.Integer)
